@@ -373,3 +373,27 @@ Décisions :
 - Section storytelling Landry Kayoyo plus détaillée si demandée
 - Mockup produit UI avec vrais composants si demandé
 
+
+---
+
+### 2026-09-25 — 15:30
+
+Agent :
+Antigravity
+
+Phase :
+Configuration Git & Règles
+
+Tâche :
+- Initialisation du dépôt Git.
+- Push initial vers GitHub (Landry-kayoyo/Paylix.git).
+- Mise à jour du README.md.
+- Ajout de règles strictes dans AGENTS.md pour forcer la lecture de la mémoire avant chaque action et le push automatique à la fin.
+
+Fichiers modifiés :
+- README.md
+- AGENTS.md
+- PROJECT_MEMORY.md
+
+Résultat :
+SUCCESS
