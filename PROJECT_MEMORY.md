@@ -397,3 +397,27 @@ Fichiers modifiés :
 
 Résultat :
 SUCCESS
+
+---
+
+### 2026-09-25 — 15:33
+
+Agent :
+Antigravity
+
+Phase :
+Nettoyage (Cleanup)
+
+Tâche :
+- Suppression du fichier de log obsolète obligations_debug.json.
+- Retrait du suivi Git et exclusion (via .gitignore) des dossiers temporaires générés par Supabase (supabase/.temp/, supabase/.branches/).
+- Suppression d'autres caches et fichiers non pertinents.
+
+Fichiers modifiés :
+- .gitignore (Mise à jour)
+- obligations_debug.json (Supprimé)
+- supabase/.temp/* (Supprimé du suivi)
+- PROJECT_MEMORY.md (Mise à jour)
+
+Résultat :
+SUCCESS
