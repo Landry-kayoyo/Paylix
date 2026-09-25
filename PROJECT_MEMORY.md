@@ -316,6 +316,51 @@ Décisions :
 
 ---
 
+### 2026-09-25 — 18:55
+
+Agent :
+Memory Agent (Antigravity)
+
+Phase :
+Correction bug PWA / landing login
+
+Tâche :
+Corriger le bouton "Connexion" sur la landing PWA qui ne passait pas correctement en mode standalone.
+
+État avant intervention :
+Le service worker interceptait toutes les requêtes de navigation avec `request.mode === 'navigate'` et renvoyait la racine `/` au lieu des routes demandées. Dans un environnement PWA, cela pouvait bloquer l’ouverture de `/login`.
+
+Travail effectué :
+- Analyse du flux PWA et de la route `/login`.
+- Vérification du service worker `public/sw.js` qui cachait les navigations document.
+- Correction du fetch `navigate` pour laisser passer `/login` tout en gardant le fallback offline sur `/`.
+- Ajout d’un test ciblé sur le comportement du service worker.
+- Validation via `npx vitest run src/lib/pwa-service-worker.test.ts`.
+
+Fichiers modifiés :
+- `public/sw.js`
+- `src/lib/pwa-service-worker.test.ts`
+
+Migrations :
+- Aucune
+
+Tests :
+- `npx vitest run src/lib/pwa-service-worker.test.ts` → 1 test passé.
+
+Résultat :
+SUCCESS
+
+Problèmes :
+- Le serveur Next ne démarre pas via la commande simplifiée dans PowerShell car l’argument `--hostname` est interprété comme un chemin de dossier dans ce shell ; la validation du bug a été faite par code et test ciblé.
+
+Décisions :
+- Les navigations de document PWA ne sont plus interceptées par le cache du service worker, sauf fallback offline sur `/` lorsque la page n’est pas accessible.
+
+À poursuivre :
+- Vérifier le comportement réel dans le navigateur PWA après installation (à partir d’un vrai contexte mobile ou navigateur avec affichage standalone).
+
+---
+
 ### 2026-09-25 — 10:12
 
 Agent :

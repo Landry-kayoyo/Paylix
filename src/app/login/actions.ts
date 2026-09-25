@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getDefaultDashboardPath } from '@/lib/user-profile'
 
 export async function login(formData: FormData) {
   const supabase = await createClient()
@@ -16,14 +17,22 @@ export async function login(formData: FormData) {
     ? requestedNext
     : '/'
 
-  const { error } = await supabase.auth.signInWithPassword(data)
+  const { data: signInData, error } = await supabase.auth.signInWithPassword(data)
 
   if (error) {
     return { error: 'Identifiants invalides.' }
   }
 
+  const { data: memberships, error: membershipsError } = await supabase
+    .from('user_memberships')
+    .select('role')
+    .eq('user_id', signInData.user.id)
+    .eq('status', 'active')
+
+  const dashboardPath = membershipsError ? '/' : getDefaultDashboardPath((memberships ?? []) as Array<{ role?: string | null }>)
+
   revalidatePath('/', 'layout')
-  redirect(next)
+  redirect(requestedNext && typeof requestedNext === 'string' && requestedNext.startsWith('/') && !requestedNext.startsWith('//') ? requestedNext : dashboardPath)
 }
 
 export async function logout() {

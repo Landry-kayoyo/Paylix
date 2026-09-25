@@ -50,23 +50,23 @@ self.addEventListener('fetch', (event) => {
   const isDocumentRequest = request.mode === 'navigate';
   const isApiRequest = isSameOrigin && url.pathname.startsWith('/api/');
 
-  if (isApiRequest || isDocumentRequest) {
+  if (isDocumentRequest) {
+    event.respondWith(
+      fetch(request).catch(async () => {
+        const cached = await caches.match('/');
+        return cached || Response.error();
+      })
+    );
+    return;
+  }
+
+  if (isApiRequest) {
     event.respondWith(
       fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.ok && isSameOrigin && !isApiRequest) {
-            const copy = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          }
-          return networkResponse;
-        })
+        .then((networkResponse) => networkResponse)
         .catch(async () => {
           const cached = await caches.match(request);
-          if (cached) return cached;
-          if (request.mode === 'navigate') {
-            return caches.match('/');
-          }
-          return Response.error();
+          return cached || Response.error();
         })
     );
     return;

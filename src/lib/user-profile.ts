@@ -16,6 +16,22 @@ export function pickPrimaryMembership<T extends UserMembershipLike>(memberships:
   return memberships[0] ?? null;
 }
 
+export function getDefaultDashboardPath(memberships: UserMembershipLike[] | null | undefined): string {
+  const membership = pickPrimaryMembership(memberships ?? []);
+  switch (membership?.role) {
+    case 'platform_admin':
+      return '/platform';
+    case 'director':
+      return '/school';
+    case 'accountant':
+      return '/accountant';
+    case 'parent':
+      return '/parent';
+    default:
+      return '/';
+  }
+}
+
 export function getUserInitials(profile: { firstName?: string | null; lastName?: string | null } | null) {
   const firstName = profile?.firstName?.trim() || "";
   const lastName = profile?.lastName?.trim() || "";

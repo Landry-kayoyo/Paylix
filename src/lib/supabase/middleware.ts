@@ -67,10 +67,32 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // If authenticated and accessing login, redirect to root (which will route by role)
+  // If authenticated and accessing login, redirect to the right dashboard for the user role
   if (user && isAuthRoute) {
+    const { data: memberships } = await supabase
+      .from('user_memberships')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+
+    const membership = pickPrimaryMembership((memberships ?? []) as Array<{ role?: string | null }>)
     const url = request.nextUrl.clone()
-    url.pathname = '/'
+    switch (membership?.role) {
+      case 'platform_admin':
+        url.pathname = '/platform';
+        break;
+      case 'director':
+        url.pathname = '/school';
+        break;
+      case 'accountant':
+        url.pathname = '/accountant';
+        break;
+      case 'parent':
+        url.pathname = '/parent';
+        break;
+      default:
+        url.pathname = '/';
+    }
     return NextResponse.redirect(url)
   }
 
