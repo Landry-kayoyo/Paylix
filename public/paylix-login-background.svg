@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F8FFFE"/>
+      <stop offset="55%" stop-color="#F5FAFA"/>
+      <stop offset="100%" stop-color="#F2F7F9"/>
+    </linearGradient>
+
+    <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#DDF5F0"/>
+      <stop offset="100%" stop-color="#BFEAE2"/>
+    </linearGradient>
+
+    <linearGradient id="greenWave" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#19B88A"/>
+      <stop offset="100%" stop-color="#08A978"/>
+    </linearGradient>
+
+    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#D9F3EE"/>
+      <stop offset="100%" stop-color="#B9E4DC"/>
+    </linearGradient>
+
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="4" r="3" fill="#B8E8DF"/>
+    </pattern>
+  </defs>
+
+  <!-- Base -->
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+
+  <!-- Large soft abstract shapes -->
+  <path d="M0 120 C260 -10 560 35 780 190 C980 330 1030 550 850 720 C650 910 290 900 0 760 Z"
+        fill="#E3F5F2" opacity=".9"/>
+  <circle cx="1600" cy="300" r="430" fill="#ECF8F7" opacity=".8"/>
+  <circle cx="1680" cy="250" r="310" fill="#FFFFFF" opacity=".55"/>
+
+  <!-- Soft curved white ribbon -->
+  <path d="M650 900 C1030 720 1220 650 1440 430 C1580 290 1700 150 1920 40
+           L1920 260 C1740 360 1610 510 1490 640 C1280 870 1030 980 760 1050 Z"
+        fill="#FFFFFF" opacity=".9"/>
+
+  <!-- School landscape -->
+  <path d="M0 600 C260 515 480 550 690 690 C820 775 900 845 1040 900
+           L1040 1080 L0 1080 Z" fill="url(#hill)" opacity=".8"/>
+
+  <path d="M0 760 C250 675 520 710 760 850 C900 930 1020 980 1150 1000
+           L1150 1080 L0 1080 Z" fill="#C8ECE5" opacity=".65"/>
+
+  <!-- School building shadow -->
+  <ellipse cx="300" cy="690" rx="300" ry="48" fill="#9DD9CE" opacity=".18" filter="url(#softShadow)"/>
+
+  <!-- Main school -->
+  <g transform="translate(70 315)">
+    <!-- Main body -->
+    <rect x="55" y="170" width="300" height="285" rx="4" fill="#D8F1EC"/>
+    <rect x="355" y="225" width="210" height="230" rx="4" fill="#C9EAE4"/>
+
+    <!-- Roof -->
+    <path d="M25 185 L205 65 L385 185 Z" fill="#B1DDD5"/>
+    <path d="M330 238 L455 155 L590 238 Z" fill="#A9D8D0"/>
+
+    <!-- Flag -->
+    <rect x="200" y="5" width="6" height="80" fill="#9CCFC6"/>
+    <path d="M206 8 L260 25 L206 43 Z" fill="#B8E5DD"/>
+
+    <!-- Clock -->
+    <circle cx="205" cy="145" r="40" fill="#F8FFFE" stroke="#A9D9D1" stroke-width="7"/>
+    <circle cx="205" cy="145" r="4" fill="#82C9BE"/>
+    <path d="M205 145 L205 120 M205 145 L225 155"
+          stroke="#82C9BE" stroke-width="5" stroke-linecap="round"/>
+
+    <!-- Door -->
+    <rect x="174" y="335" width="62" height="120" rx="3" fill="#A8D8D0"/>
+    <circle cx="224" cy="395" r="5" fill="#79BEB4"/>
+
+    <!-- Windows -->
+    <g fill="#B5E2DB">
+      <rect x="90" y="235" width="58" height="58" rx="2"/>
+      <rect x="260" y="235" width="58" height="58" rx="2"/>
+      <rect x="395" y="270" width="48" height="55" rx="2"/>
+      <rect x="490" y="270" width="48" height="55" rx="2"/>
+      <rect x="395" y="355" width="48" height="55" rx="2"/>
+      <rect x="490" y="355" width="48" height="55" rx="2"/>
+    </g>
+
+    <!-- Window divisions -->
+    <g stroke="#DDF5F1" stroke-width="4">
+      <path d="M119 235 V293 M90 264 H148"/>
+      <path d="M289 235 V293 M260 264 H318"/>
+      <path d="M419 270 V325 M395 297 H443"/>
+      <path d="M514 270 V325 M490 297 H538"/>
+      <path d="M419 355 V410 M395 382 H443"/>
+      <path d="M514 355 V410 M490 382 H538"/>
+    </g>
+  </g>
+
+  <!-- Trees / shrubs -->
+  <g fill="#A8DED4" opacity=".9">
+    <circle cx="90" cy="760" r="48"/>
+    <circle cx="145" cy="750" r="65"/>
+    <circle cx="205" cy="770" r="48"/>
+    <circle cx="500" cy="760" r="55"/>
+    <circle cx="555" cy="745" r="70"/>
+    <circle cx="625" cy="770" r="48"/>
+    <circle cx="790" cy="845" r="42"/>
+  </g>
+
+  <!-- Ground paths -->
+  <path d="M205 850 C360 825 520 850 690 930 C790 977 890 1000 1030 1005"
+        fill="none" stroke="#EEF9F7" stroke-width="70" opacity=".9"/>
+  <path d="M200 855 C365 835 530 865 690 938"
+        fill="none" stroke="#D2EEE9" stroke-width="18" opacity=".7"/>
+
+  <!-- Green Paylix wave -->
+  <path d="M820 1050 C1120 1010 1340 925 1515 780
+           C1660 660 1780 520 1920 430
+           L1920 625 C1800 710 1710 835 1550 925
+           C1350 1040 1120 1080 850 1080 Z"
+        fill="url(#greenWave)"/>
+
+  <!-- Thin white separation above green wave -->
+  <path d="M790 1015 C1100 965 1315 880 1495 735
+           C1650 610 1760 475 1920 370"
+        fill="none" stroke="#FFFFFF" stroke-width="38" opacity=".92"/>
+
+  <!-- Decorative dot grids -->
+  <rect x="1570" y="150" width="260" height="150" fill="url(#dots)" opacity=".7"/>
+  <rect x="70" y="845" width="250" height="150" fill="url(#dots)" opacity=".65"/>
+
+  <!-- Subtle clouds -->
+  <g fill="#FFFFFF" opacity=".75">
+    <path d="M90 170 C90 135 120 110 155 110 C178 110 198 121 210 140
+             C220 120 244 108 270 108 C315 108 345 137 345 175
+             Z"/>
+    <path d="M690 220 C690 190 714 168 744 168 C765 168 782 178 792 194
+             C804 177 825 168 847 168 C884 168 908 191 908 220 Z"/>
+  </g>
+
+  <!-- Very subtle top-right curved line -->
+  <path d="M1420 0 C1630 100 1790 150 1920 130"
+        fill="none" stroke="#FFFFFF" stroke-width="7" opacity=".55"/>
+</svg>

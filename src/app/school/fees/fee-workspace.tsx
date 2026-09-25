@@ -1,0 +1,123 @@
+﻿"use client";
+/* eslint-disable react/no-unescaped-entities */
+
+import { useMemo, useState } from "react";
+import { AlertCircle, Check, ChevronRight, Edit3, Eye, Loader2, Power, Search, WalletCards, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { EmptyState } from "@/components/shared/empty-state";
+import { createFee, FeeItem, FeePageData, toggleFeeStatus, updateFee } from "./actions";
+
+const months = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+type FormState = { name: string; type: "unique" | "monthly"; currency: "CDF" | "USD"; amount: string; classIds: string[]; selectedMonths: number[]; scheduleAmounts: Record<number, string>; dueDates: Record<number, string> };
+const emptyForm = (): FormState => ({ name: "", type: "unique", currency: "USD", amount: "", classIds: [], selectedMonths: [], scheduleAmounts: {}, dueDates: {} });
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function formFromFee(fee: FeeItem | null): FormState { const initial = emptyForm(); if (fee) { initial.name = fee.name; initial.type = fee.fee_type; initial.currency = fee.currency; initial.amount = String(fee.default_amount); initial.classIds = fee.classes.map((item) => item.id).filter((id) => uuidPattern.test(id)); initial.selectedMonths = fee.fee_schedules.map((item) => item.month); fee.fee_schedules.forEach((item) => { initial.scheduleAmounts[item.month] = String(item.amount); initial.dueDates[item.month] = item.due_date || ""; }); } return initial; }
+
+function formatMoney(value: number | string, currency: string) { return `${Number(value).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`; }
+function statusLabel(status: string) { return status === "active" ? "Actif" : "Désactivé"; }
+
+export function FeeWorkspace({ data }: { data: FeePageData }) {
+  const [fees, setFees] = useState(data.fees);
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<FeeItem | null>(null);
+  const [viewing, setViewing] = useState<FeeItem | null>(null);
+  const [confirming, setConfirming] = useState<FeeItem | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const visibleFees = useMemo(() => fees.filter((fee) => {
+    const matchesQuery = fee.name.toLowerCase().includes(query.toLowerCase());
+    return matchesQuery && (typeFilter === "all" || fee.fee_type === typeFilter);
+  }), [fees, query, typeFilter]);
+  const activeFees = fees.filter((fee) => fee.status === "active");
+  const classesCovered = new Set(fees.flatMap((fee) => fee.classes.map((item) => item.id))).size;
+
+  function openCreate() { setEditing(null); setDialogOpen(true); }
+  function openEdit(fee: FeeItem) { setEditing(fee); setDialogOpen(true); }
+  async function handleToggle() {
+    if (!confirming) return;
+    try {
+      await toggleFeeStatus(confirming.id, confirming.status === "active" ? "inactive" : "active");
+      setFees((current) => current.map((fee) => fee.id === confirming.id ? { ...fee, status: fee.status === "active" ? "inactive" : "active" } : fee));
+      setNotice(confirming.status === "active" ? "Frais désactivé. Les obligations existantes sont conservées." : "Frais réactivé.");
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Une erreur est survenue."); }
+    setConfirming(null);
+  }
+  function handleSaved(fee: FeeItem, wasEditing: boolean, hasHistoricalObligations = false) {
+    setFees((current) => wasEditing ? current.map((item) => item.id === fee.id ? fee : item) : [fee, ...current]);
+    setDialogOpen(false);
+    setNotice(hasHistoricalObligations ? "Frais modifié. Les obligations historiques conservent leurs montants." : wasEditing ? "Frais modifié avec succès." : "Frais créé avec succès.");
+  }
+
+  return <div className="space-y-6">
+    {notice && <div role="status" className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"><Check className="mt-0.5 h-4 w-4 shrink-0" /><span>{notice}</span><button className="ml-auto" aria-label="Fermer" onClick={() => setNotice(null)}><X className="h-4 w-4" /></button></div>}
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div><p className="text-sm font-medium text-emerald-700">Finances / Configuration</p><h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">Frais scolaires</h1><p className="mt-2 text-sm text-slate-500">Configurez les frais applicables pour l'année active{data.activeYear ? ` ${data.activeYear.name}` : "."}</p></div>
+      <Button onClick={openCreate} disabled={!data.activeYear} className="gap-2"><WalletCards className="h-4 w-4" />Nouveau frais</Button>
+    </div>
+    <div className="flex flex-col gap-3 rounded-xl border bg-white p-3 shadow-sm sm:flex-row sm:items-center"><div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input aria-label="Rechercher un frais" className="h-10 w-full rounded-lg border-0 bg-slate-50 pl-9 pr-3 text-sm outline-none ring-1 ring-transparent focus:ring-emerald-500" placeholder="Rechercher un frais..." value={query} onChange={(event) => setQuery(event.target.value)} /></div><select aria-label="Filtrer par type" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="h-10 w-full sm:w-44"><option value="all">Tous les types</option><option value="unique">Frais uniques</option><option value="monthly">Frais mensuels</option></select><a href="/school/obligations" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">Voir les obligations <ChevronRight className="h-4 w-4" /></a></div>
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi label="Frais actifs" value={activeFees.length} /><Kpi label="Frais uniques" value={activeFees.filter((fee) => fee.fee_type === "unique").length} /><Kpi label="Frais mensuels" value={activeFees.filter((fee) => fee.fee_type === "monthly").length} /><Kpi label="Classes concernées" value={classesCovered} /></div>
+    <Card><CardHeader className="border-b"><CardTitle className="flex items-center justify-between"><span>Frais configurés</span><span className="text-sm font-normal text-slate-500">{visibleFees.length} résultat{visibleFees.length > 1 ? "s" : ""}</span></CardTitle></CardHeader><CardContent className="p-0">
+        {!data.activeYear ? <EmptyState icon={AlertCircle} title="Aucune année active" description="Activez une année scolaire avant de configurer les frais." /> : visibleFees.length === 0 ? <EmptyState icon={WalletCards} title={fees.length ? "Aucun résultat" : "Aucun frais configuré"} description={fees.length ? "Modifiez votre recherche ou vos filtres." : "Commencez par créer les frais scolaires applicables à vos élèves."} action={!fees.length ? <Button onClick={openCreate} className="gap-2"><WalletCards className="h-4 w-4" />Créer un frais</Button> : undefined} /> : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="border-b bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-6 py-3">Nom du frais</th><th className="px-6 py-3">Type</th><th className="px-6 py-3">Montant</th><th className="px-6 py-3">Classes concernées</th><th className="px-6 py-3">Période</th><th className="px-6 py-3">Statut</th><th className="px-6 py-3 text-right">Actions</th></tr></thead><tbody className="divide-y">{visibleFees.map((fee) => <tr key={fee.id} className="hover:bg-emerald-50/30"><td className="px-6 py-4"><p className="font-medium text-slate-900">{fee.name}</p>{fee.has_obligations && <p className="mt-1 text-xs text-amber-700">Historique protégé</p>}</td><td className="px-6 py-4"><Badge variant={fee.fee_type === "monthly" ? "default" : "secondary"}>{fee.fee_type === "monthly" ? "Mensuel" : "Unique"}</Badge></td><td className="px-6 py-4 font-medium">{formatMoney(fee.default_amount, fee.currency)}</td><td className="max-w-[220px] px-6 py-4 text-slate-600">{fee.classes.length === data.classes.length ? "Toutes les classes" : fee.classes.map((item) => item.name).join(", ") || "Aucune classe"}</td><td className="px-6 py-4 text-slate-600">{fee.fee_type === "monthly" ? `${fee.fee_schedules.length} mois` : "-"}</td><td className="px-6 py-4"><Badge variant={fee.status === "active" ? "default" : "outline"}>{statusLabel(fee.status)}</Badge></td><td className="px-6 py-4"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon-sm" aria-label={`Modifier ${fee.name}`} onClick={() => openEdit(fee)}><Edit3 className="h-4 w-4" /></Button><Button variant="ghost" size="icon-sm" aria-label={fee.status === "active" ? `Désactiver ${fee.name}` : `Activer ${fee.name}`} onClick={() => setConfirming(fee)}><Power className="h-4 w-4" /></Button><Button variant="ghost" size="icon-sm" aria-label={`Voir les détails de ${fee.name}`} onClick={() => setViewing(fee)}><Eye className="h-4 w-4" /></Button></div></td></tr>)}</tbody></table></div>}
+      </CardContent></Card>
+    <FeeDialog key={editing?.id || "new-fee"} open={dialogOpen} onOpenChange={setDialogOpen} fee={editing} classes={data.classes} activeYear={data.activeYear} onSaved={handleSaved} />
+    <FeeDetailsDialog fee={viewing} onOpenChange={(open) => !open && setViewing(null)} />
+    <Dialog open={Boolean(confirming)} onOpenChange={(open) => !open && setConfirming(null)}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>{confirming?.status === "active" ? "Désactiver ce frais ?" : "Réactiver ce frais ?"}</DialogTitle><DialogDescription>{confirming?.status === "active" ? "Les obligations déjà créées ne seront pas supprimées. Le frais ne sera plus proposé pour les futures obligations." : "Ce frais redeviendra disponible pour les futures obligations."}</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setConfirming(null)}>Annuler</Button><Button onClick={handleToggle}>{confirming?.status === "active" ? "Désactiver" : "Réactiver"}</Button></DialogFooter></DialogContent></Dialog>
+  </div>;
+}
+
+function FeeDetailsDialog({ fee, onOpenChange }: { fee: FeeItem | null; onOpenChange: (open: boolean) => void }) {
+  return <Sheet open={Boolean(fee)} onOpenChange={onOpenChange}>
+    <SheetContent side="right" className="w-full p-0 sm:max-w-lg">
+      <SheetHeader className="border-b px-6 py-5 pr-14">
+        <SheetTitle className="text-2xl font-semibold text-slate-950">{fee?.name}</SheetTitle>
+        <SheetDescription>Configuration du frais pour l&apos;année scolaire active.</SheetDescription>
+      </SheetHeader>
+      {fee && <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
+        <div className="grid gap-3 rounded-xl border bg-slate-50 p-4 sm:grid-cols-3">
+          <Detail label="Type" value={fee.fee_type === "monthly" ? "Frais mensuel" : "Frais unique"} />
+          <Detail label="Montant par défaut" value={formatMoney(fee.default_amount, fee.currency)} />
+          <Detail label="Statut" value={statusLabel(fee.status)} />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900">Classes concernées</h3>
+          <p className="mt-2 text-sm text-slate-600">{fee.classes.length ? fee.classes.map((item) => item.name).join(", ") : "Aucune classe associée"}</p>
+        </div>
+        {fee.fee_type === "monthly" && <div>
+          <h3 className="text-sm font-semibold text-slate-900">Mois et échéances</h3>
+          <div className="mt-2 divide-y rounded-xl border">
+            {fee.fee_schedules.length ? fee.fee_schedules.map((schedule) => <div key={schedule.id || schedule.month} className="flex flex-wrap justify-between gap-2 px-3 py-2 text-sm"><span>{months[schedule.month - 1]}</span><span className="font-medium">{formatMoney(schedule.amount, fee.currency)}{schedule.due_date ? ` · ${new Date(`${schedule.due_date}T12:00:00`).toLocaleDateString("fr-FR")}` : ""}</span></div>) : <p className="px-3 py-3 text-sm text-amber-700">Aucun mois configuré.</p>}
+          </div>
+        </div>}
+        {fee.has_obligations && <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Ce frais est déjà utilisé. Les obligations historiques conservent leurs montants.</p>}
+      </div>}
+    </SheetContent>
+  </Sheet>;
+}
+
+function Detail({ label, value }: { label: string; value: string }) { return <div><p className="text-xs uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 font-medium text-slate-900">{value}</p></div>; }
+function Kpi({ label, value }: { label: string; value: number }) { return <Card className="p-5"><p className="text-sm text-slate-500">{label}</p><p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p></Card>; }
+
+function FeeDialog({ open, onOpenChange, fee, classes, activeYear, onSaved }: { open: boolean; onOpenChange: (open: boolean) => void; fee: FeeItem | null; classes: { id: string; name: string }[]; activeYear: FeePageData["activeYear"]; onSaved: (fee: FeeItem, editing: boolean, historical?: boolean) => void }) {
+  const [form, setForm] = useState<FormState>(() => formFromFee(fee));
+  const [step, setStep] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const editing = Boolean(fee);
+  function reset() { setForm(formFromFee(fee)); setStep(1); setError(null); }
+  function setOpen(value: boolean) { if (value) reset(); onOpenChange(value); }
+  function toggleClass(id: string) { setForm((current) => ({ ...current, classIds: current.classIds.includes(id) ? current.classIds.filter((item) => item !== id) : [...current.classIds, id] })); }
+  function toggleMonth(month: number) { setForm((current) => { const selected = current.selectedMonths.includes(month); const selectedMonths = selected ? current.selectedMonths.filter((item) => item !== month) : [...current.selectedMonths, month].sort((a, b) => a - b); return { ...current, selectedMonths, scheduleAmounts: { ...current.scheduleAmounts, [month]: current.scheduleAmounts[month] || current.amount }, dueDates: { ...current.dueDates, [month]: current.dueDates[month] || defaultDueDate(activeYear, month) } }; }); }
+  async function submit() { setError(null); if (!form.name.trim() || !form.amount || Number(form.amount) <= 0) return setError("Renseignez un nom et un montant valide."); if (!form.classIds.length) return setError("Sélectionnez au moins une classe."); if (form.type === "monthly" && !form.selectedMonths.length) return setError("Sélectionnez au moins un mois."); if (form.type === "monthly" && form.selectedMonths.some((month) => !form.scheduleAmounts[month] || !form.dueDates[month])) return setError("Chaque mois doit avoir un montant et une échéance valides."); setSaving(true); try { const payload = { id: fee?.id, name: form.name.trim(), type: form.type, currency: form.currency, default_amount: Number(form.amount), classIds: form.classIds, schedules: form.selectedMonths.map((month) => ({ month, amount: Number(form.scheduleAmounts[month]), due_date: form.dueDates[month] })) }; const result = editing ? await updateFee(payload) : await createFee(payload); const saved = { ...(fee || {}), id: fee?.id || `new-${Date.now()}`, name: payload.name, fee_type: payload.type, currency: payload.currency, default_amount: payload.default_amount, status: fee?.status || "active", school_year_id: fee?.school_year_id || activeYear?.id || "", classes: classes.filter((item) => form.classIds.includes(item.id)), fee_schedules: payload.schedules } as FeeItem; onSaved(saved, editing, "hasHistoricalObligations" in result ? result.hasHistoricalObligations : false); } catch (caught) { setError(caught instanceof Error ? caught.message : "Impossible d'enregistrer ce frais."); } finally { setSaving(false); } }
+  return <Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-w-3xl"><DialogHeader><DialogTitle>{editing ? "Modifier le frais" : "Nouveau frais scolaire"}</DialogTitle><DialogDescription>{activeYear ? `Année scolaire active : ${activeYear.name}` : "Aucune année active"}</DialogDescription></DialogHeader><div className="flex items-center gap-2 border-b pb-4 text-xs text-slate-500"><Step number={1} label="Informations" active={step === 1} /><ChevronRight className="h-4 w-4" /><Step number={2} label="Classes" active={step === 2} /><ChevronRight className="h-4 w-4" /><Step number={3} label="Configuration" active={step === 3} /><ChevronRight className="h-4 w-4" /><Step number={4} label="Résumé" active={step === 4} /></div>{error && <div role="alert" className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}<div className="max-h-[55vh] overflow-y-auto pr-1">{step === 1 && <section className="grid gap-4 sm:grid-cols-2"><Field label="Nom du frais" required><input autoFocus className="field" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Ex. Minerval" /></Field><Field label="Type de frais" required><select className="field" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as FormState["type"], selectedMonths: [] })}><option value="unique">Frais unique</option><option value="monthly">Frais mensuel</option></select></Field><Field label="Devise" required><select className="field" value={form.currency} onChange={(event) => setForm({ ...form, currency: event.target.value as FormState["currency"] })}><option value="USD">USD</option><option value="CDF">CDF</option></select></Field><Field label="Montant par défaut" required><input className="field" type="number" min="0.01" step="0.01" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} placeholder="0,00" /></Field></section>}{step === 2 && <section className="space-y-4"><div><h3 className="font-medium text-slate-900">Classes concernées</h3><p className="mt-1 text-sm text-slate-500">Les obligations seront rattachées aux élèves de ces classes.</p></div><button type="button" onClick={() => setForm({ ...form, classIds: form.classIds.length === classes.length ? [] : classes.map((item) => item.id) })} className="text-left text-sm font-medium text-emerald-700">{form.classIds.length === classes.length ? "Désélectionner toutes les classes" : "Sélectionner toutes les classes"}</button><div className="grid gap-2 sm:grid-cols-2">{classes.map((item) => <label key={item.id} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${form.classIds.includes(item.id) ? "border-emerald-500 bg-emerald-50" : "border-slate-200"}`}><input type="checkbox" checked={form.classIds.includes(item.id)} onChange={() => toggleClass(item.id)} className="accent-emerald-600" />{item.name}</label>)}</div>{form.classIds.length > 0 && <div className="flex flex-wrap gap-2">{form.classIds.map((id) => <Badge key={id} variant="secondary">{classes.find((item) => item.id === id)?.name}<button type="button" aria-label="Retirer la classe" onClick={() => toggleClass(id)}><X className="h-3 w-3" /></button></Badge>)}</div>}</section>}{step === 3 && <section className="space-y-4">{form.type === "unique" ? <div className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">Ce frais sera dû une seule fois, à la création de l'obligation.</div> : <><div><h3 className="font-medium text-slate-900">Mois concernés</h3><p className="mt-1 text-sm text-slate-500">Le montant par défaut est appliqué automatiquement, puis ajustable mois par mois.</p></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{months.map((name, index) => <label key={name} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.selectedMonths.includes(index + 1)} onChange={() => toggleMonth(index + 1)} className="accent-emerald-600" />{name}</label>)}</div>{form.selectedMonths.length > 0 && <div className="overflow-x-auto rounded-lg border"><table className="w-full min-w-[560px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-3 py-2">Mois</th><th className="px-3 py-2">Montant</th><th className="px-3 py-2">Échéance</th></tr></thead><tbody className="divide-y">{form.selectedMonths.map((month) => <tr key={month}><td className="px-3 py-2 font-medium">{months[month - 1]}</td><td className="px-3 py-2"><input className="field" type="number" min="0.01" step="0.01" value={form.scheduleAmounts[month] || ""} onChange={(event) => setForm({ ...form, scheduleAmounts: { ...form.scheduleAmounts, [month]: event.target.value } })} /></td><td className="px-3 py-2"><input className="field" type="date" value={form.dueDates[month] || ""} onChange={(event) => setForm({ ...form, dueDates: { ...form.dueDates, [month]: event.target.value } })} /></td></tr>)}</tbody></table></div>}</>}</section>}{step === 4 && <section className="space-y-4"><div className="rounded-xl border bg-slate-50 p-4"><h3 className="font-semibold text-slate-900">Résumé du frais</h3><dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2"><Summary label="Nom" value={form.name || "Non renseigné"} /><Summary label="Type" value={form.type === "monthly" ? "Frais mensuel" : "Frais unique"} /><Summary label="Montant par défaut" value={form.amount ? formatMoney(form.amount, form.currency) : "Non renseigné"} /><Summary label="Classes" value={form.classIds.map((id) => classes.find((item) => item.id === id)?.name).join(", ") || "Aucune"} /></dl></div>{form.type === "monthly" && <div className="space-y-2"><h3 className="font-semibold text-slate-900">Configuration mensuelle</h3>{form.selectedMonths.map((month) => <div key={month} className="flex flex-wrap justify-between gap-2 rounded-lg border bg-white px-3 py-2 text-sm"><span className="font-medium">{months[month - 1]}</span><span>{formatMoney(form.scheduleAmounts[month], form.currency)} · {new Date(`${form.dueDates[month]}T12:00:00`).toLocaleDateString("fr-FR")}</span></div>)}</div>}<p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Les obligations générées à partir de ce frais seront rattachées aux élèves concernés. Les obligations historiques conservent leurs montants.</p></section>}</div><DialogFooter><Button type="button" variant="outline" onClick={() => step === 1 ? onOpenChange(false) : setStep(step - 1)} disabled={saving}>{step === 1 ? "Annuler" : "Retour"}</Button>{step < 4 ? <Button type="button" onClick={() => setStep(step + 1)} disabled={saving}>Continuer</Button> : <Button type="button" onClick={submit} disabled={saving}>{saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? "Enregistrement..." : editing ? "Enregistrer les modifications" : "Créer le frais"}</Button>}</DialogFooter></DialogContent></Dialog>;
+}
+function Step({ number, label, active }: { number: number; label: string; active: boolean }) { return <span className={`flex min-w-0 flex-1 items-center gap-1.5 ${active ? "font-semibold text-emerald-700" : ""}`}><span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${active ? "bg-emerald-600 text-white" : "bg-slate-100"}`}>{number}</span><span className="hidden truncate sm:inline">{label}</span></span>; }
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) { return <label className="space-y-1.5 text-sm font-medium text-slate-700"><span>{label}{required && <span className="text-red-500"> *</span>}</span>{children}</label>; }
+function Summary({ label, value }: { label: string; value: string }) { return <div><dt className="text-xs uppercase tracking-wide text-slate-500">{label}</dt><dd className="mt-1 font-medium text-slate-900">{value}</dd></div>; }
+function defaultDueDate(year: FeePageData["activeYear"], month: number) { return year ? `${month >= 9 ? year.start_date.slice(0, 4) : String(Number(year.start_date.slice(0, 4)) + 1)}-${String(month).padStart(2, "0")}-15` : ""; }
+
