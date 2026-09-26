@@ -858,3 +858,26 @@ BLOCKED - Ncessite l'intervention humaine pour les tests de production (SMTP rel
 
 - Vrification de la configuration Vercel : Aucune surcharge via \ercel.json\ n'est prsente. Le dploiement repose sur le fonctionnement \Zero Configuration\ natif de Vercel pour Next.js, ce qui est la best practice recommande.
 
+
+
+---
+
+### 2026-09-26 - 15:53
+
+Agent :
+Antigravity
+
+Phase :
+Dploiement automatique V1
+
+Tche :
+Prparation de l'architecture pour un dploiement automatique propre et reproductible.
+
+Travail effectu :
+- Cration du fichier \.env.prod\ servant de modle pour les variables d'environnement de production.
+- Cration de l'action GitHub \.github/workflows/production.yml\ pour le dploiement automatique des migrations Supabase Cloud via \supabase db push\.
+- Vercel gre nativement le front-end via push sur \main\.
+
+Rsultat :
+SUCCESS - Le dpt est configur pour que tout push sur la branche \main\ dclenche  la fois le build de Next.js (via Vercel) et l'application des migrations (via GitHub Actions).
+
