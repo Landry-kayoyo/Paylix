@@ -82,7 +82,7 @@ export function DirectorMessagesClient({
   );
 
   const filteredParents = parentOptions.filter((p) =>
-    !parentSearch || p.fullName.toLowerCase().includes(parentSearch.toLowerCase()) ||
+    !parentSearch || (p.fullName ?? "").toLowerCase().includes(parentSearch.toLowerCase()) ||
     (p.email ?? "").toLowerCase().includes(parentSearch.toLowerCase())
   );
 
@@ -289,10 +289,10 @@ export function DirectorMessagesClient({
                             id={`select-parent-${p.userId}`}
                           >
                             <div className="h-7 w-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">
-                              {p.fullName.charAt(0)}
+                              {(p.fullName || "?").charAt(0).toUpperCase()}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-slate-900 truncate">{p.fullName}</p>
+                              <p className="text-sm font-medium text-slate-900 truncate">{p.fullName || "Parent inconnu"}</p>
                               {p.email && <p className="text-xs text-slate-400 truncate">{p.email}</p>}
                             </div>
                             {selectedParentId === p.userId && <Check className="h-4 w-4 text-primary shrink-0" />}
@@ -303,7 +303,7 @@ export function DirectorMessagesClient({
                     {selectedParentId && (
                       <p className="mt-1 text-xs text-emerald-600 flex items-center gap-1">
                         <Check className="h-3 w-3" />
-                        {parentOptions.find((p) => p.userId === selectedParentId)?.fullName} sélectionné(e)
+                        {parentOptions.find((p) => p.userId === selectedParentId)?.fullName || "Parent inconnu"} sélectionné(e)
                       </p>
                     )}
                   </div>
