@@ -40,8 +40,7 @@ export function PlatformMessagesClient({ initialConversations, userId, recipient
   const [isPending, startTransition] = useTransition();
   const [showChat, setShowChat] = useState(false);
   const [newMessageOpen, setNewMessageOpen] = useState(false);
-  const [recipientKey, setRecipientKey] = useState("");
-  const [newSubject, setNewSubject] = useState("");
+  const [selectedTenantId, setSelectedTenantId] = useState("");
   const [newBody, setNewBody] = useState("");
   const [newMessageError, setNewMessageError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -85,7 +84,7 @@ export function PlatformMessagesClient({ initialConversations, userId, recipient
         if (data) {
           const updated = data.map((row: any) => {
             const conv = Array.isArray(row.conversations) ? row.conversations[0] : row.conversations;
-            if (!conv) return null;
+            if (!conv || conv.category !== "platform_support") return null;
             const tenant = Array.isArray(conv.tenants) ? conv.tenants[0] : conv.tenants;
             const msgs = (Array.isArray(conv.messages) ? conv.messages : []).sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
             const is_unread = !row.last_read_at || new Date(conv.updated_at) > new Date(row.last_read_at);
@@ -128,41 +127,52 @@ export function PlatformMessagesClient({ initialConversations, userId, recipient
   };
 
   const handleCreateConversation = async () => {
-    const recipient = recipients.find((item) => `${item.tenantId}:${item.directorId}` === recipientKey);
-    if (!recipient || !newSubject.trim() || !newBody.trim()) return;
+    const recipient = recipients.find((item) => item.tenantId === selectedTenantId);
+    if (!recipient || !newBody.trim()) return;
 
     setIsCreating(true);
     setNewMessageError(null);
     try {
       const { conversationId } = await startPlatformConversationWithDirectorAction(
         recipient.tenantId,
-        recipient.directorId,
-        newSubject,
         newBody
       );
       const createdAt = new Date().toISOString();
+      const optimisticMessage = {
+        id: crypto.randomUUID(),
+        body: newBody.trim(),
+        created_at: createdAt,
+        sender_id: userId,
+      };
       const newConversation: ConversationItemWithTenant = {
         id: conversationId,
-        subject: newSubject.trim(),
-        category: "general",
+        subject: null,
+        category: "platform_support",
         updated_at: createdAt,
         tenant_id: recipient.tenantId,
         tenant_name: recipient.tenantName,
         last_read_at: createdAt,
         is_unread: false,
-        messages: [{
-          id: crypto.randomUUID(),
-          body: newBody.trim(),
-          created_at: createdAt,
-          sender_id: userId,
-        }],
+        messages: [optimisticMessage],
       };
-      setConversations((previous) => [newConversation, ...previous]);
+      setConversations((previous) => {
+        const existingConversation = previous.find((conversation) => conversation.id === conversationId);
+        if (!existingConversation) return [newConversation, ...previous];
+        return [
+          {
+            ...existingConversation,
+            updated_at: createdAt,
+            last_read_at: createdAt,
+            is_unread: false,
+            messages: [...existingConversation.messages, optimisticMessage],
+          },
+          ...previous.filter((conversation) => conversation.id !== conversationId),
+        ];
+      });
       setActiveId(conversationId);
       setShowChat(true);
       setNewMessageOpen(false);
-      setRecipientKey("");
-      setNewSubject("");
+      setSelectedTenantId("");
       setNewBody("");
     } catch (error: unknown) {
       setNewMessageError(error instanceof Error ? error.message : "Impossible de créer le message.");
@@ -201,28 +211,24 @@ export function PlatformMessagesClient({ initialConversations, userId, recipient
             <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Nouveau message</DialogTitle>
-                <DialogDescription>Envoyez un message privé au directeur d’un établissement actif.</DialogDescription>
+                <DialogDescription>Une seule discussion est conservée par établissement ; vos prochains messages seront regroupés dans cette discussion.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 pt-2">
                 <div>
-                  <label htmlFor="platform-message-recipient" className="text-sm font-medium text-slate-700">Établissement / directeur</label>
+                  <label htmlFor="platform-message-recipient" className="text-sm font-medium text-slate-700">Établissement</label>
                   <select
                     id="platform-message-recipient"
-                    value={recipientKey}
-                    onChange={(event) => setRecipientKey(event.target.value)}
+                    value={selectedTenantId}
+                    onChange={(event) => setSelectedTenantId(event.target.value)}
                     className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   >
                     <option value="">Choisir un destinataire</option>
                     {recipients.map((recipient) => (
-                      <option key={`${recipient.tenantId}:${recipient.directorId}`} value={`${recipient.tenantId}:${recipient.directorId}`}>
-                        {recipient.tenantName} — {recipient.directorName}
+                      <option key={recipient.tenantId} value={recipient.tenantId}>
+                        {recipient.tenantName}
                       </option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label htmlFor="platform-message-subject" className="text-sm font-medium text-slate-700">Sujet</label>
-                  <Input id="platform-message-subject" className="mt-1" placeholder="Objet du message" value={newSubject} onChange={(event) => setNewSubject(event.target.value)} />
                 </div>
                 <div>
                   <label htmlFor="platform-message-body" className="text-sm font-medium text-slate-700">Message</label>
@@ -238,7 +244,7 @@ export function PlatformMessagesClient({ initialConversations, userId, recipient
                 <Button
                   className="w-full gap-2"
                   onClick={handleCreateConversation}
-                  disabled={isCreating || !recipientKey || !newSubject.trim() || !newBody.trim()}
+                  disabled={isCreating || !selectedTenantId || !newBody.trim()}
                   id="send-platform-new-msg-btn"
                 >
                   {isCreating ? "Envoi en cours..." : <><Send className="h-4 w-4" /> Envoyer</>}

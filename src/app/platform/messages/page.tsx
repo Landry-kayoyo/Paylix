@@ -8,8 +8,6 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 export interface PlatformRecipientOption {
   tenantId: string;
   tenantName: string;
-  directorId: string;
-  directorName: string;
 }
 
 export const metadata = {
@@ -43,26 +41,13 @@ export default async function PlatformMessagesPage() {
       .eq("status", "active"),
   ]);
 
-  const directorIds = [...new Set((directorMemberships ?? []).map((item) => item.user_id))];
-  const { data: profiles } = directorIds.length
-    ? await supabaseAdmin.from("profiles").select("id, first_name, last_name").in("id", directorIds)
-    : { data: [] };
-
   const tenantNames = new Map((tenants ?? []).map((tenant) => [tenant.id, tenant.name]));
-  const profileNames = new Map((profiles ?? []).map((profile) => [
-    profile.id,
-    [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Directeur",
-  ]));
-  const recipients: PlatformRecipientOption[] = (directorMemberships ?? [])
-    .filter((director) => tenantNames.has(director.tenant_id))
-    .map((director) => ({
-      tenantId: director.tenant_id,
-      tenantName: tenantNames.get(director.tenant_id) ?? "Établissement",
-      directorId: director.user_id,
-      directorName: profileNames.get(director.user_id) ?? "Directeur",
-    }));
+  const tenantIdsWithDirectors = new Set((directorMemberships ?? []).map((director) => director.tenant_id));
+  const recipients: PlatformRecipientOption[] = (tenants ?? [])
+    .filter((tenant) => tenantIdsWithDirectors.has(tenant.id))
+    .map((tenant) => ({ tenantId: tenant.id, tenantName: tenant.name }));
 
-  // Platform admin: get all conversations they participate in (no tenant filter)
+  // Platform admin: show one support thread per tenant.
   const { data: convData } = await supabase
     .from("conversation_participants")
     .select(`
@@ -78,7 +63,7 @@ export default async function PlatformMessagesPage() {
 
   const conversations = (convData ?? []).map((row: any) => {
     const conv = Array.isArray(row.conversations) ? row.conversations[0] : row.conversations;
-    if (!conv) return null;
+    if (!conv || conv.category !== "platform_support") return null;
     const tenant = Array.isArray(conv.tenants) ? conv.tenants[0] : conv.tenants;
     const msgs = Array.isArray(conv.messages) ? conv.messages : [];
     msgs.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());

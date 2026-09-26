@@ -218,8 +218,6 @@ export async function startConversationWithParentAction(
 
 export async function startPlatformConversationWithDirectorAction(
   tenantId: string,
-  directorId: string,
-  subject: string,
   body: string
 ) {
   const supabase = await createClient();
@@ -235,41 +233,79 @@ export async function startPlatformConversationWithDirectorAction(
     .limit(1);
 
   if (!platformMemberships?.length) throw new Error("Accès réservé au super-administrateur.");
-  if (!tenantId || !directorId || !subject.trim() || !body.trim()) {
-    throw new Error("Le destinataire, le sujet et le message sont obligatoires.");
+  if (!tenantId || !body.trim()) {
+    throw new Error("L'établissement et le message sont obligatoires.");
   }
-  if (subject.trim().length > 200 || body.trim().length > 10000) {
-    throw new Error("Le sujet ou le message dépasse la longueur autorisée.");
+  if (body.trim().length > 10000) {
+    throw new Error("Le message dépasse la longueur autorisée.");
   }
 
-  const { data: directorMembership } = await supabaseAdmin
+  const { data: directorMemberships, error: directorsError } = await supabaseAdmin
     .from("user_memberships")
     .select("user_id")
     .eq("tenant_id", tenantId)
-    .eq("user_id", directorId)
     .eq("role", "director")
-    .eq("status", "active")
-    .maybeSingle();
+    .eq("status", "active");
 
-  if (!directorMembership) throw new Error("Le directeur sélectionné n'est pas actif dans cet établissement.");
+  if (directorsError) throw directorsError;
+  if (!directorMemberships?.length) throw new Error("Aucun directeur actif n'est associé à cet établissement.");
 
-  const { data: conv, error: convError } = await supabaseAdmin
+  const { data: existingConversation, error: conversationLookupError } = await supabaseAdmin
     .from("conversations")
-    .insert({ tenant_id: tenantId, subject: subject.trim(), category: "general", created_by: user.id })
     .select("id")
-    .single();
-  if (convError) throw convError;
+    .eq("tenant_id", tenantId)
+    .eq("category", "platform_support")
+    .maybeSingle();
+  if (conversationLookupError) throw conversationLookupError;
 
+  let conversationId = existingConversation?.id ?? null;
+  if (!conversationId) {
+    const { data: createdConversation, error: createError } = await supabaseAdmin
+      .from("conversations")
+      .insert({ tenant_id: tenantId, subject: null, category: "platform_support", created_by: user.id })
+      .select("id")
+      .single();
+
+    if (createError?.code === "23505") {
+      const { data: concurrentConversation, error: retryError } = await supabaseAdmin
+        .from("conversations")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("category", "platform_support")
+        .maybeSingle();
+      if (retryError) throw retryError;
+      conversationId = concurrentConversation?.id ?? null;
+    } else if (createError) {
+      throw createError;
+    } else {
+      conversationId = createdConversation.id;
+    }
+  }
+
+  if (!conversationId) throw new Error("Impossible d'ouvrir la discussion de cet établissement.");
+
+  const { data: platformAdmins, error: adminsError } = await supabaseAdmin
+    .from("user_memberships")
+    .select("user_id")
+    .eq("role", "platform_admin")
+    .eq("status", "active");
+  if (adminsError) throw adminsError;
+
+  const participantIds = [...new Set([
+    user.id,
+    ...(platformAdmins ?? []).map((membership) => membership.user_id),
+    ...directorMemberships.map((membership) => membership.user_id),
+  ])];
   const { error: participantError } = await supabaseAdmin
     .from("conversation_participants")
-    .insert([
-      { conversation_id: conv.id, user_id: user.id },
-      { conversation_id: conv.id, user_id: directorMembership.user_id },
-    ]);
+    .upsert(
+      participantIds.map((participantId) => ({ conversation_id: conversationId, user_id: participantId })),
+      { onConflict: "conversation_id,user_id", ignoreDuplicates: true }
+    );
   if (participantError) throw participantError;
 
   const { error: messageError } = await supabaseAdmin.from("messages").insert({
-    conversation_id: conv.id,
+    conversation_id: conversationId,
     sender_id: user.id,
     tenant_id: tenantId,
     body: body.trim(),
@@ -279,11 +315,11 @@ export async function startPlatformConversationWithDirectorAction(
   await supabaseAdmin
     .from("conversations")
     .update({ updated_at: new Date().toISOString() })
-    .eq("id", conv.id);
+    .eq("id", conversationId);
 
   revalidatePath("/platform/messages");
   revalidatePath("/school/messages");
-  return { conversationId: conv.id };
+  return { conversationId };
 }
 
 // ─── Director: send broadcast ───────────────────────────────────────────────────

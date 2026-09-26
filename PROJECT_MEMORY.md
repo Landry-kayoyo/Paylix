@@ -675,3 +675,43 @@ Point de sécurité à traiter séparément :
 - Le diagnostic Supabase a signalé que `public.message_categories` a RLS désactivé. Aucune modification automatique n'a été faite, car il faut définir les policies de lecture/écriture attendues avant d'activer RLS.
 
 ---
+
+### 2026-09-26 — 14:40
+
+Agent :
+GitHub Copilot
+
+Phase :
+Messages Plateforme — discussion unique par établissement
+
+Tâche :
+Regrouper les discussions Platform par établissement et supprimer le champ Sujet du formulaire Nouveau message.
+
+Travail effectué :
+- Nouvelle catégorie `platform_support` dédiée aux discussions entre la plateforme et un établissement.
+- L'action serveur retrouve la discussion de support existante pour le tenant et y ajoute le message ; elle crée la discussion seulement si elle n'existe pas.
+- Une seule option par établissement dans la modale ; les directeurs actifs du tenant et les admins actifs sont participants de la discussion commune.
+- Suppression du champ Sujet ; les nouvelles conversations de support utilisent un sujet SQL NULL.
+- Migration de données fusionnant les anciennes conversations créées par les admins pour un même établissement, en conservant messages et participants ; index unique partiel garantissant une discussion de support par tenant.
+
+Fichiers modifiés :
+- `src/app/actions/messages.ts`
+- `src/app/platform/messages/page.tsx`
+- `src/app/platform/messages/messages-client.tsx`
+- `supabase/migrations/20260926000002_platform_support_thread_per_tenant.sql`
+- `PROJECT_MEMORY.md`
+
+Tests :
+- `npx vitest run tests/user-profile.test.ts tests/messages-default.test.ts` → 6 tests passés.
+- `npx tsc --noEmit` → succès.
+- `supabase migration up --local` → migration appliquée.
+- Vérification SQL locale : une conversation `platform_support` par chacun des 3 établissements ayant des discussions ; leurs messages ont été conservés (3, 5 et 1).
+- Validation navigateur : liste réduite à 3 discussions, noms des établissements visibles et formulaire sans Sujet.
+
+Résultat :
+SUCCESS — Une discussion Platform unique est conservée par établissement et les messages suivants sont ajoutés à cette discussion.
+
+Limite d'application :
+- La migration a été appliquée à Supabase local ; elle reste à appliquer au projet distant lorsqu'il doit recevoir ces changements.
+
+---
