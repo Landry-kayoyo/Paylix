@@ -18,7 +18,8 @@ export default async function ParentMessagesPage() {
 
   if (!memberships || memberships.length === 0) return <div>Accès refusé.</div>;
   const activeTenantId = memberships[0].tenant_id;
-  const tenantName = memberships[0].tenants?.name || "L'établissement";
+  const tenantsField = memberships[0].tenants;
+  const tenantName = (Array.isArray(tenantsField) ? tenantsField[0]?.name : (tenantsField as any)?.name) || "L'établissement";
 
   const messagesService = new MessagesService(supabase);
   const initialConversations = await messagesService.getConversations(activeTenantId);

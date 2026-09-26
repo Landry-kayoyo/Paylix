@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { Database } from '@/types/supabase';
 
-type SupabaseClient = ReturnType<typeof createClient>;
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 export interface AudienceCriteria {
   schoolYearId: string;

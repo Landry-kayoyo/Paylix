@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { Database } from '@/types/supabase';
 import { ParentAudienceService, AudienceCriteria } from './parent-audience';
 
-type SupabaseClient = ReturnType<typeof createClient>;
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 export class MessagesService {
   constructor(private supabase: SupabaseClient) {}
@@ -131,6 +131,6 @@ export class MessagesService {
       .order('updated_at', { referencedTable: 'conversations', ascending: false });
 
     if (error) throw error;
-    return data;
+    return data || [];
   }
 }

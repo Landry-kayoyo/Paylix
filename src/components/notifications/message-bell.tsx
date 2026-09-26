@@ -29,7 +29,10 @@ export function MessageBell({ role }: { role: string }) {
       if (data) {
         const unread = data.filter(cp => {
            if (!cp.last_read_at) return true;
-           return new Date(cp.conversations.updated_at) > new Date(cp.last_read_at);
+           const convs = cp.conversations;
+           const updatedAt = Array.isArray(convs) ? convs[0]?.updated_at : (convs as any)?.updated_at;
+           if (!updatedAt) return false;
+           return new Date(updatedAt) > new Date(cp.last_read_at);
         }).length;
         setUnreadCount(unread);
       }
