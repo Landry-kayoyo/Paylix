@@ -52,7 +52,7 @@ export function CreateTenantDialog({ onCreated }: { onCreated?: (tenant: any) =>
     city: string;
     fullName: string;
     phone: string;
-    emailTransport: "mailpit" | "email-provider";
+    emailTransport: string;
   } | null>(null);
 
   const form = useForm<FormValues>({
