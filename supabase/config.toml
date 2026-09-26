@@ -249,16 +249,22 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# Templates d'emails Paylix
+[auth.email.template.invite]
+subject = "Vous êtes invité à rejoindre Paylix 🎉"
+content_path = "./supabase/templates/invite.html"
 
-# Uncomment to customize notification email template
-# [auth.email.notification.password_changed]
-# enabled = true
-# subject = "Your password has been changed"
-# content_path = "./supabase/templates/password_changed_notification.html"
+[auth.email.template.recovery]
+subject = "Réinitialisez votre mot de passe Paylix 🔐"
+content_path = "./supabase/templates/reset-password.html"
+
+[auth.email.template.confirmation]
+subject = "Confirmez votre adresse email Paylix ✉️"
+content_path = "./supabase/templates/confirm-signup.html"
+
+[auth.email.template.email_change]
+subject = "Confirmez votre nouvelle adresse email Paylix 📧"
+content_path = "./supabase/templates/change-email.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
