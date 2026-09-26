@@ -33,6 +33,7 @@ async function seedSuperAdmin() {
     process.exit(1);
   }
 
+  const existingUser = existingUsers.users.find(u => u.email === SUPERADMIN_EMAIL);
   let userId;
   if (existingUser) {
     console.log("✅ L'utilisateur existe déjà dans Auth, vérification de ses accès...");
