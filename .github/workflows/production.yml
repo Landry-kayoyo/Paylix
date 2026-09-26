@@ -13,8 +13,14 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
       SUPABASE_PROJECT_ID: ${{ secrets.PRODUCTION_PROJECT_ID }}
+
     steps:
       - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -26,3 +32,16 @@ jobs:
 
       - name: Deploy Migrations
         run: supabase db push --password $SUPABASE_DB_PASSWORD
+
+      - name: Install dependencies for seed script
+        run: npm install --legacy-peer-deps
+
+      - name: Seed Superadmin (idempotent)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPERADMIN_EMAIL: ${{ secrets.SUPERADMIN_EMAIL }}
+          SUPERADMIN_PASSWORD: ${{ secrets.SUPERADMIN_PASSWORD }}
+          SUPERADMIN_FIRST_NAME: ${{ secrets.SUPERADMIN_FIRST_NAME }}
+          SUPERADMIN_LAST_NAME: ${{ secrets.SUPERADMIN_LAST_NAME }}
+        run: npx tsx scripts/seed-superadmin.ts
