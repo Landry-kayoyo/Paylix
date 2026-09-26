@@ -84,7 +84,8 @@ async function seedSuperAdmin() {
       .from('tenants')
       .insert({
         name: 'Paylix HQ',
-        domain: 'paylix',
+        slug: 'paylix-hq',
+        code: 'HQ001',
         status: 'active'
       })
       .select('id')
