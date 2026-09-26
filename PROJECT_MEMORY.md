@@ -466,3 +466,24 @@ Fichiers modifiés :
 
 Résultat :
 SUCCESS
+
+---
+
+### 2026-09-26 — 09:07
+
+Agent :
+Antigravity
+
+Phase :
+Messages & Chat interne Paylix (Phase 18)
+
+Tâche :
+- Création de la migration de base de données pour le module Messages & Chat.
+- Définition de l'architecture pour le temps réel et la messagerie multi-tenant.
+
+Fichiers modifiés :
+- `supabase/migrations/20260925000000_phase18_messages_chat.sql` (Créé)
+- `PROJECT_MEMORY.md` (Mise à jour)
+
+Résultat :
+BLOCKED (La phase est très vaste, la migration est prête, mais l'implémentation complète UI/API nécessite des étapes itératives. Rapport final soumis.)
