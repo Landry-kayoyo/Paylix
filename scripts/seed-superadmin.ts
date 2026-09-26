@@ -102,12 +102,15 @@ async function seedSuperAdmin() {
   console.log(`⏳ Assignation du rôle platform_admin sur le tenant ${tenantId}...`);
   const { error: membershipError } = await supabaseAdmin
     .from('user_memberships')
-    .insert({
-      user_id: userId,
-      tenant_id: tenantId,
-      role: 'platform_admin',
-      status: 'active'
-    });
+    .upsert(
+      {
+        user_id: userId,
+        tenant_id: tenantId,
+        role: 'platform_admin',
+        status: 'active'
+      },
+      { onConflict: 'user_id,tenant_id,role' }
+    );
 
   if (membershipError) {
     console.error("❌ Erreur rôle:", membershipError.message);
