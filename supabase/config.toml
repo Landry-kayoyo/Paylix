@@ -262,6 +262,10 @@ content_path = "./supabase/templates/reset-password.html"
 subject = "Confirmez votre adresse email Paylix ✉️"
 content_path = "./supabase/templates/confirm-signup.html"
 
+[auth.email.template.magic_link]
+subject = "Votre lien magique de connexion Paylix ✨"
+content_path = "./supabase/templates/magic-link.html"
+
 [auth.email.template.email_change]
 subject = "Confirmez votre nouvelle adresse email Paylix 📧"
 content_path = "./supabase/templates/change-email.html"
