@@ -884,3 +884,26 @@ SUCCESS - Le dpt est configur pour que tout push sur la branche \main\ dclenche 
 
 - Cration du script interactif \scripts/create-superadmin.ts\ permettant la cration scurise d'un compte Platform Admin sur la production via le client Supabase Admin.
 
+
+
+---
+
+### 2026-09-26 - 16:42
+
+Agent :
+Antigravity
+
+Phase :
+Deploiement V1 - Automatisation superadmin
+
+Tache :
+Rendre la creation du superadmin 100% autonome et idempotente via GitHub Actions.
+
+Travail effectue :
+- Cration de scripts/seed-superadmin.ts : script non-interactif lisant les variables d'env, verifiant si le superadmin existe deja avant de le creer (idempotent).
+- Mise a jour de .github/workflows/production.yml : ajout des etapes Setup Node.js + Install deps + Seed Superadmin apres les migrations.
+- Mise a jour de .env.prod : ajout des variables SUPERADMIN_* comme template.
+
+Resultat :
+SUCCESS - Chaque push sur main applique les migrations puis cree le superadmin automatiquement si absent.
+
