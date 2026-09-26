@@ -50,6 +50,7 @@ export default async function PlatformMessagesPage() {
       subject: conv.subject,
       category: conv.category,
       updated_at: conv.updated_at,
+      tenant_id: conv.tenant_id,
       last_read_at: row.last_read_at,
       is_unread,
       messages: msgs,

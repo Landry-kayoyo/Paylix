@@ -44,7 +44,7 @@ export default async function DirectorMessagesPage() {
     .select("id, name")
     .eq("tenant_id", tenantId)
     .eq("is_active", true)
-    .single();
+    .maybeSingle();
 
   const conversations = await getConversationsAction(tenantId);
 
