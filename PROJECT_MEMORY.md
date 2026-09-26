@@ -855,3 +855,6 @@ pm run build (en cours).
 Rsultat :
 BLOCKED - Ncessite l'intervention humaine pour les tests de production (SMTP rel, base Supabase Cloud, dashboard Vercel) selon la rgle de test rel.
 
+
+- Vrification de la configuration Vercel : Aucune surcharge via \ercel.json\ n'est prsente. Le dploiement repose sur le fonctionnement \Zero Configuration\ natif de Vercel pour Next.js, ce qui est la best practice recommande.
+
