@@ -746,3 +746,28 @@ Résultat :
 SUCCESS — La conversation Platform n'est plus libellée « Sans sujet » dans la boîte du directeur.
 
 ---
+
+### 2026-09-26 — 14:40
+
+Agent :
+GitHub Copilot
+
+Phase :
+Messages — test réel Directeur vers Support Paylix
+
+Tâche :
+Tester l'envoi effectif d'un message depuis le compte directeur vers l'admin SaaS via le fil « Support Paylix ».
+
+Travail effectué :
+- Envoi depuis le compte directeur ITC dans la conversation `platform_support` existante.
+- Vérification dans PostgreSQL local que le message est enregistré avec le bon tenant et l'identifiant du directeur comme expéditeur.
+- Vérification que l'admin SaaS actif est participant de la même discussion.
+
+Tests :
+- Envoi navigateur : succès, le message s'affiche dans le fil côté directeur.
+- Vérification DB : le message a été persisté dans la discussion de l'Institut Technique Commercial Lubumbashi ; un administrateur SaaS actif est participant.
+
+Résultat :
+SUCCESS — L'envoi Directeur → Support Paylix fonctionne. Le message de test est conservé dans la base locale.
+
+---
