@@ -33,27 +33,25 @@ async function seedSuperAdmin() {
     process.exit(1);
   }
 
-  const existingUser = existingUsers.users.find(u => u.email === SUPERADMIN_EMAIL);
-
+  let userId;
   if (existingUser) {
-    console.log("✅ Le compte superadmin existe déjà — aucune action effectuée.");
-    process.exit(0);
+    console.log("✅ L'utilisateur existe déjà dans Auth, vérification de ses accès...");
+    userId = existingUser.id;
+  } else {
+    // Créer l'utilisateur dans Supabase Auth
+    console.log("⏳ Création du compte superadmin...");
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: SUPERADMIN_EMAIL,
+      password: SUPERADMIN_PASSWORD,
+      email_confirm: true,
+    });
+
+    if (authError) {
+      console.error("❌ Erreur Auth:", authError.message);
+      process.exit(1);
+    }
+    userId = authData.user.id;
   }
-
-  // Créer l'utilisateur dans Supabase Auth
-  console.log("⏳ Création du compte superadmin...");
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-    email: SUPERADMIN_EMAIL,
-    password: SUPERADMIN_PASSWORD,
-    email_confirm: true,
-  });
-
-  if (authError) {
-    console.error("❌ Erreur Auth:", authError.message);
-    process.exit(1);
-  }
-
-  const userId = authData.user.id;
 
   // Créer le profil
   const { error: profileError } = await supabaseAdmin
