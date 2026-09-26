@@ -139,13 +139,14 @@ export async function createTenantWithDirector(data: z.infer<typeof createTenant
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
   
-  const { data: membership } = await supabase
+  const { data: platformMemberships } = await supabase
     .from("user_memberships")
     .select("role")
     .eq("user_id", user.id)
     .eq("role", "platform_admin")
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  const membership = (platformMemberships ?? [])[0] ?? null;
     
   if (!membership) throw new Error("Unauthorized: Platform Admin only");
 
@@ -271,13 +272,14 @@ export async function regenerateAccess(directorId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
   
-  const { data: membership } = await supabase
+  const { data: memberships } = await supabase
     .from("user_memberships")
     .select("role")
     .eq("user_id", user.id)
     .eq("role", "platform_admin")
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  const membership = (memberships ?? [])[0] ?? null;
     
   if (!membership) throw new Error("Unauthorized: Platform Admin only");
 
@@ -353,13 +355,14 @@ export async function getTenantsWithDirectors() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
   
-  const { data: membership } = await supabase
+  const { data: memberships } = await supabase
     .from("user_memberships")
     .select("role")
     .eq("user_id", user.id)
     .eq("role", "platform_admin")
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  const membership = (memberships ?? [])[0] ?? null;
     
   if (!membership) throw new Error("Unauthorized: Platform Admin only");
 
@@ -370,7 +373,7 @@ export async function getTenantsWithDirectors() {
 
   if (tenantsError) throw new Error(tenantsError.message);
 
-  const { data: memberships } = await supabaseAdmin
+  const { data: directorMemberships } = await supabaseAdmin
     .from("user_memberships")
     .select("tenant_id, user_id, role, profiles(id, first_name, last_name, phone, status, must_change_password)")
     .eq("role", "director");
@@ -382,7 +385,7 @@ export async function getTenantsWithDirectors() {
   });
 
   return (tenants || []).map(tenant => {
-    const directorMembership = (memberships || []).find(m => m.tenant_id === tenant.id);
+    const directorMembership = (directorMemberships || []).find(m => m.tenant_id === tenant.id);
     const profile = directorMembership?.profiles as any;
     const director = profile ? {
       id: profile.id,
@@ -415,13 +418,14 @@ export async function updateTenant(data: z.infer<typeof updateTenantSchema>) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
   
-  const { data: membership } = await supabase
+  const { data: memberships } = await supabase
     .from("user_memberships")
     .select("role")
     .eq("user_id", user.id)
     .eq("role", "platform_admin")
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  const membership = (memberships ?? [])[0] ?? null;
     
   if (!membership) throw new Error("Unauthorized: Platform Admin only");
 
@@ -450,13 +454,14 @@ export async function getTenantDetail(tenantId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const { data: membership } = await supabase
+  const { data: memberships } = await supabase
     .from("user_memberships")
     .select("role")
     .eq("user_id", user.id)
     .eq("role", "platform_admin")
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  const membership = (memberships ?? [])[0] ?? null;
 
   if (!membership) throw new Error("Unauthorized: Platform Admin only");
 
@@ -506,13 +511,14 @@ export async function getPlatformStats(period: string = '30d') {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const { data: membership } = await supabase
+  const { data: memberships } = await supabase
     .from("user_memberships")
     .select("role")
     .eq("user_id", user.id)
     .eq("role", "platform_admin")
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  const membership = (memberships ?? [])[0] ?? null;
 
   if (!membership) throw new Error("Unauthorized: Platform Admin only");
 

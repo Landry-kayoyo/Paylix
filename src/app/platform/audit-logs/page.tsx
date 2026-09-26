@@ -16,13 +16,14 @@ export default async function PlatformAuditLogsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: membership } = await supabase
+  const { data: memberships } = await supabase
     .from("user_memberships")
     .select("role")
     .eq("user_id", user.id)
     .eq("role", "platform_admin")
-    .eq("status", "active")
-    .single();
+    .eq("status", "active");
+
+  const membership = (memberships ?? [])[0] ?? null;
 
   if (!membership) {
     redirect(`/login`);

@@ -17,14 +17,15 @@ async function assertPlatformAdmin() {
 
   if (!user) throw new Error("Non authentifié.");
 
-  const { data: membership } = await supabase
+  const { data: memberships } = await supabase
     .from("user_memberships")
     .select("role")
     .eq("user_id", user.id)
     .eq("role", "platform_admin")
     .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  const membership = (memberships ?? [])[0] ?? null;
 
   if (!membership) throw new Error("Accès refusé : Platform Admin uniquement.");
 

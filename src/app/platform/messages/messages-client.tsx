@@ -2,14 +2,23 @@
 
 import { useState, useEffect, useRef, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { MessageCircle, Send, Clock, ArrowLeft, AlertCircle } from "lucide-react";
+import { MessageCircle, Send, Clock, ArrowLeft, AlertCircle, Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { sendMessageAction, markReadAction } from "@/app/actions/messages";
+import { sendMessageAction, markReadAction, startPlatformConversationWithDirectorAction } from "@/app/actions/messages";
 import type { ConversationItem } from "@/app/actions/messages";
 import { getDefaultActiveConversationId } from "@/lib/messages-utils";
+import type { PlatformRecipientOption } from "./page";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface ConversationItemWithTenant extends ConversationItem {
   tenant_id?: string;
@@ -18,9 +27,10 @@ interface ConversationItemWithTenant extends ConversationItem {
 interface Props {
   initialConversations: ConversationItemWithTenant[];
   userId: string;
+  recipients: PlatformRecipientOption[];
 }
 
-export function PlatformMessagesClient({ initialConversations, userId }: Props) {
+export function PlatformMessagesClient({ initialConversations, userId, recipients }: Props) {
   const supabase = createClient();
   const [conversations, setConversations] = useState<ConversationItemWithTenant[]>(initialConversations);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -28,6 +38,12 @@ export function PlatformMessagesClient({ initialConversations, userId }: Props) 
   const [sendError, setSendError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [showChat, setShowChat] = useState(false);
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
+  const [recipientKey, setRecipientKey] = useState("");
+  const [newSubject, setNewSubject] = useState("");
+  const [newBody, setNewBody] = useState("");
+  const [newMessageError, setNewMessageError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const activeConv = conversations.find((c) => c.id === activeId) ?? null;
@@ -109,6 +125,49 @@ export function PlatformMessagesClient({ initialConversations, userId }: Props) 
     setShowChat(true);
   };
 
+  const handleCreateConversation = async () => {
+    const recipient = recipients.find((item) => `${item.tenantId}:${item.directorId}` === recipientKey);
+    if (!recipient || !newSubject.trim() || !newBody.trim()) return;
+
+    setIsCreating(true);
+    setNewMessageError(null);
+    try {
+      const { conversationId } = await startPlatformConversationWithDirectorAction(
+        recipient.tenantId,
+        recipient.directorId,
+        newSubject,
+        newBody
+      );
+      const createdAt = new Date().toISOString();
+      const newConversation: ConversationItemWithTenant = {
+        id: conversationId,
+        subject: newSubject.trim(),
+        category: "general",
+        updated_at: createdAt,
+        tenant_id: recipient.tenantId,
+        last_read_at: createdAt,
+        is_unread: false,
+        messages: [{
+          id: crypto.randomUUID(),
+          body: newBody.trim(),
+          created_at: createdAt,
+          sender_id: userId,
+        }],
+      };
+      setConversations((previous) => [newConversation, ...previous]);
+      setActiveId(conversationId);
+      setShowChat(true);
+      setNewMessageOpen(false);
+      setRecipientKey("");
+      setNewSubject("");
+      setNewBody("");
+    } catch (error: unknown) {
+      setNewMessageError(error instanceof Error ? error.message : "Impossible de créer le message.");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const unreadCount = conversations.filter((c) => c.is_unread).length;
 
   return (
@@ -126,6 +185,64 @@ export function PlatformMessagesClient({ initialConversations, userId }: Props) 
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">Communication inter-établissements</p>
           </div>
+          <Dialog open={newMessageOpen} onOpenChange={(open) => {
+            setNewMessageOpen(open);
+            if (!open) setNewMessageError(null);
+          }}>
+            <DialogTrigger render={
+              <Button className="gap-2 bg-primary hover:bg-primary/90" id="new-msg-platform-btn" disabled={recipients.length === 0}>
+                <Plus className="h-4 w-4" />
+                Nouveau message
+              </Button>
+            } />
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Nouveau message</DialogTitle>
+                <DialogDescription>Envoyez un message privé au directeur d’un établissement actif.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                <div>
+                  <label htmlFor="platform-message-recipient" className="text-sm font-medium text-slate-700">Établissement / directeur</label>
+                  <select
+                    id="platform-message-recipient"
+                    value={recipientKey}
+                    onChange={(event) => setRecipientKey(event.target.value)}
+                    className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">Choisir un destinataire</option>
+                    {recipients.map((recipient) => (
+                      <option key={`${recipient.tenantId}:${recipient.directorId}`} value={`${recipient.tenantId}:${recipient.directorId}`}>
+                        {recipient.tenantName} — {recipient.directorName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="platform-message-subject" className="text-sm font-medium text-slate-700">Sujet</label>
+                  <Input id="platform-message-subject" className="mt-1" placeholder="Objet du message" value={newSubject} onChange={(event) => setNewSubject(event.target.value)} />
+                </div>
+                <div>
+                  <label htmlFor="platform-message-body" className="text-sm font-medium text-slate-700">Message</label>
+                  <textarea
+                    id="platform-message-body"
+                    className="mt-1 w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+                    placeholder="Contenu de votre message..."
+                    value={newBody}
+                    onChange={(event) => setNewBody(event.target.value)}
+                  />
+                </div>
+                {newMessageError && <p role="alert" className="text-sm text-destructive">{newMessageError}</p>}
+                <Button
+                  className="w-full gap-2"
+                  onClick={handleCreateConversation}
+                  disabled={isCreating || !recipientKey || !newSubject.trim() || !newBody.trim()}
+                  id="send-platform-new-msg-btn"
+                >
+                  {isCreating ? "Envoi en cours..." : <><Send className="h-4 w-4" /> Envoyer</>}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -147,6 +264,16 @@ export function PlatformMessagesClient({ initialConversations, userId }: Props) 
                   </div>
                   <p className="text-sm font-medium text-slate-600">Aucune conversation</p>
                   <p className="text-xs text-slate-400 mt-1">Les messages des établissements apparaissent ici.</p>
+                  <Button
+                    variant="outline"
+                    className="mt-4 gap-2"
+                    onClick={() => setNewMessageOpen(true)}
+                    disabled={recipients.length === 0}
+                    id="platform-empty-new-msg-btn"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Nouveau message
+                  </Button>
                 </div>
               ) : (
                 conversations.map((c) => {

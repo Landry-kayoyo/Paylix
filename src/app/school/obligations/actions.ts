@@ -6,7 +6,14 @@ async function getFinanceTenant() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Non authentifié");
-  const { data: membership } = await supabase.from("user_memberships").select("tenant_id, role").eq("user_id", user.id).eq("status", "active").in("role", ["director", "accountant"]).single();
+  const { data: memberships } = await supabase
+    .from("user_memberships")
+    .select("tenant_id, role")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .in("role", ["director", "accountant"]);
+
+  const membership = (memberships ?? [])[0] ?? null;
   if (!membership?.tenant_id) throw new Error("Accès refusé.");
   return { supabase, tenantId: membership.tenant_id };
 }

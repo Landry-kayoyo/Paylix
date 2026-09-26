@@ -1,7 +1,19 @@
 export type UserMembershipLike = {
   role?: string | null;
   tenant_id?: string | null;
+  status?: string | null;
 };
+
+export function pickMembershipByRole<T extends UserMembershipLike>(
+  memberships: T[] | null | undefined,
+  roles: string[]
+): T | null {
+  const activeMemberships = memberships ?? [];
+  return activeMemberships.find((membership) => {
+    const role = membership.role ?? null;
+    return !!role && roles.includes(role);
+  }) ?? null;
+}
 
 export function pickPrimaryMembership<T extends UserMembershipLike>(memberships: T[] | null | undefined): T | null {
   if (!memberships || memberships.length === 0) {

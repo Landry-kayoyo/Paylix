@@ -596,3 +596,46 @@ Résultat :
 SUCCESS (L'entièreté des requêtes de la Phase 18 est complétée, y compris la notification header et la modale Directeur).
 
 ---
+
+### 2026-09-26 — 14:20
+
+Agent :
+GitHub Copilot
+
+Phase :
+Messages Plateforme — nouveau message
+
+Tâche :
+Ajouter un bouton « Nouveau message » à la messagerie du super-administrateur afin de démarrer une conversation avec un directeur.
+
+Travail effectué :
+- Ajout d'une action serveur sécurisée qui vérifie un membership actif platform_admin et que le destinataire est bien directeur actif de l'établissement choisi.
+- Ajout du chargement des directeurs et établissements actifs dans la page Platform Messages.
+- Ajout d'une modale de composition avec destinataire, sujet et message ; après envoi, la nouvelle conversation est insérée dans l'interface et sélectionnée.
+- Ajout d'un second accès « Nouveau message » dans l'état vide de la liste des conversations.
+
+Fichiers modifiés :
+- `src/app/actions/messages.ts`
+- `src/app/platform/messages/page.tsx`
+- `src/app/platform/messages/messages-client.tsx`
+- `PROJECT_MEMORY.md`
+
+Migrations :
+- Aucune
+
+Tests :
+- `npx vitest run tests/user-profile.test.ts tests/messages-default.test.ts` → 6 tests passés.
+- `npx tsc --noEmit` → succès.
+- Validation navigateur sur `/platform/messages` : bouton affiché, modale ouverte et liste de quatre destinataires actifs chargée ; aucun message de test n'a été envoyé.
+
+Résultat :
+SUCCESS — Le super-administrateur peut composer un nouveau message privé destiné au directeur d'un établissement actif.
+
+Décisions :
+- Le flux initial est volontairement limité aux directeurs actifs des établissements actifs ; l'action serveur revalide toujours le rôle et le lien tenant/directeur.
+- Aucun schéma ni migration n'est requis pour cette conversation tenant-bound.
+
+À poursuivre :
+- Étendre les destinataires aux comptables ou parents uniquement si le périmètre fonctionnel est confirmé.
+
+---
