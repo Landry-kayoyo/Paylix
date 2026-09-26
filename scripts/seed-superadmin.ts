@@ -1,6 +1,6 @@
 /**
  * Script idempotent de création du superadmin de production.
- * Exécuté automatiquement par GitHub Actions après les migrations.
+ * Exécuté automatiquement par Vercel prebuild après les migrations.
  * Ne crée le compte que s'il n'existe pas déjà.
  */
 import { createClient } from '@supabase/supabase-js';
@@ -65,12 +65,46 @@ async function seedSuperAdmin() {
     process.exit(1);
   }
 
-  // Assigner le rôle platform_admin (tenant_id = null car global)
+  // Assurer qu'il existe au moins un tenant (Paylix HQ) pour l'associer au superadmin
+  console.log("⏳ Vérification / Création du tenant principal (Paylix HQ)...");
+  let tenantId;
+  const { data: existingTenants, error: tenantSearchError } = await supabaseAdmin
+    .from('tenants')
+    .select('id')
+    .limit(1);
+
+  if (tenantSearchError) {
+    console.error("❌ Erreur recherche tenant:", tenantSearchError.message);
+    process.exit(1);
+  }
+
+  if (existingTenants && existingTenants.length > 0) {
+    tenantId = existingTenants[0].id;
+  } else {
+    const { data: newTenant, error: newTenantError } = await supabaseAdmin
+      .from('tenants')
+      .insert({
+        name: 'Paylix HQ',
+        domain: 'paylix',
+        status: 'active'
+      })
+      .select('id')
+      .single();
+
+    if (newTenantError) {
+      console.error("❌ Erreur création tenant HQ:", newTenantError.message);
+      process.exit(1);
+    }
+    tenantId = newTenant.id;
+  }
+
+  // Assigner le rôle platform_admin
+  console.log(`⏳ Assignation du rôle platform_admin sur le tenant ${tenantId}...`);
   const { error: membershipError } = await supabaseAdmin
     .from('user_memberships')
     .insert({
       user_id: userId,
-      tenant_id: null,
+      tenant_id: tenantId,
       role: 'platform_admin',
       status: 'active'
     });
