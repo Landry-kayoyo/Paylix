@@ -32,6 +32,7 @@ import {
   markReadAction,
   getConversationsAction,
   startConversationWithDirectorAction,
+  startConversationWithParentAction,
 } from "@/app/actions/messages";
 import type { ConversationItem } from "@/app/actions/messages";
 import type { ParentOption, ClassOption } from "./page";
@@ -140,7 +141,7 @@ export function DirectorMessagesClient({
       if (targetMode === "individual") {
         // Direct conversation with one parent
         const parent = parentOptions.find((p) => p.userId === selectedParentId);
-        await startConversationWithDirectorAction(tenantId, broadcastSubject.trim(), broadcastBody.trim());
+        await startConversationWithParentAction(tenantId, selectedParentId, broadcastSubject.trim(), broadcastBody.trim());
         setSendResult({ type: "success", msg: `✅ Message envoyé à ${parent?.fullName ?? "le parent"}.` });
       } else {
         // Broadcast (all or financial)

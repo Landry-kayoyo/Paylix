@@ -50,6 +50,9 @@ export async function getConversationsAction(tenantId: string): Promise<Conversa
     .eq("user_id", user.id)
     .is("archived_at", null);
 
+  console.log("getConversationsAction for", user.id, "tenant:", tenantId);
+  console.log("DATA:", data?.length, "ERROR:", error);
+
   if (error || !data) return [];
 
   return data
@@ -143,7 +146,7 @@ export async function startConversationWithDirectorAction(
 
   if (!directors || directors.length === 0) throw new Error("Aucun directeur trouvé");
 
-  const { data: conv, error: convErr } = await supabase
+  const { data: conv, error: convErr } = await supabaseAdmin
     .from("conversations")
     .insert({ tenant_id: tenantId, subject, category: "general", created_by: user.id })
     .select("id")
@@ -154,18 +157,60 @@ export async function startConversationWithDirectorAction(
     conversation_id: conv.id,
     user_id: uid,
   }));
-  await supabase.from("conversation_participants").insert(participants);
+  const { error: partErr } = await supabaseAdmin.from("conversation_participants").insert(participants);
+  if (partErr) throw partErr;
 
-  await supabase.from("messages").insert({
+  const { error: msgErr } = await supabaseAdmin.from("messages").insert({
     conversation_id: conv.id,
     sender_id: user.id,
     tenant_id: tenantId,
     body,
   });
+  if (msgErr) throw msgErr;
 
-  await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conv.id);
+  await supabaseAdmin.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conv.id);
 
   revalidatePath("/parent/messages");
+  return { conversationId: conv.id };
+}
+
+// ─── Director: start conversation with parent ───────────────────────────────────
+
+export async function startConversationWithParentAction(
+  tenantId: string,
+  parentId: string,
+  subject: string,
+  body: string
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data: conv, error: convErr } = await supabaseAdmin
+    .from("conversations")
+    .insert({ tenant_id: tenantId, subject, category: "general", created_by: user.id })
+    .select("id")
+    .single();
+  if (convErr) throw convErr;
+
+  const participants = [
+    { conversation_id: conv.id, user_id: user.id },
+    { conversation_id: conv.id, user_id: parentId },
+  ];
+  const { error: partErr } = await supabaseAdmin.from("conversation_participants").insert(participants);
+  if (partErr) throw partErr;
+
+  const { error: msgErr } = await supabaseAdmin.from("messages").insert({
+    conversation_id: conv.id,
+    sender_id: user.id,
+    tenant_id: tenantId,
+    body,
+  });
+  if (msgErr) throw msgErr;
+
+  await supabaseAdmin.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conv.id);
+
+  revalidatePath("/school/messages");
   return { conversationId: conv.id };
 }
 
@@ -195,26 +240,28 @@ export async function sendBroadcastAction(
 
   // Create one conversation per parent for privacy
   for (const recipientId of recipientIds) {
-    const { data: conv } = await supabase
+    const { data: conv, error: convErr } = await supabaseAdmin
       .from("conversations")
       .insert({ tenant_id: tenantId, subject, category: "broadcast", created_by: user.id })
       .select("id")
       .single();
-    if (!conv) continue;
+    if (convErr || !conv) continue;
 
-    await supabase.from("conversation_participants").insert([
+    const { error: partErr } = await supabaseAdmin.from("conversation_participants").insert([
       { conversation_id: conv.id, user_id: user.id },
       { conversation_id: conv.id, user_id: recipientId },
     ]);
+    if (partErr) throw partErr;
 
-    await supabase.from("messages").insert({
+    const { error: msgErr } = await supabaseAdmin.from("messages").insert({
       conversation_id: conv.id,
       sender_id: user.id,
       tenant_id: tenantId,
       body,
     });
+    if (msgErr) throw msgErr;
 
-    await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conv.id);
+    await supabaseAdmin.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conv.id);
   }
 
   revalidatePath("/school/messages");
