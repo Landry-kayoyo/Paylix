@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { MessageCircle, Send, Clock, ArrowLeft } from "lucide-react";
+import { MessageCircle, Send, Clock, ArrowLeft, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,15 +10,21 @@ import { Badge } from "@/components/ui/badge";
 import { sendMessageAction, markReadAction } from "@/app/actions/messages";
 import type { ConversationItem } from "@/app/actions/messages";
 
+interface ConversationItemWithTenant extends ConversationItem {
+  tenant_id?: string;
+}
+
 interface Props {
-  initialConversations: ConversationItem[];
+  initialConversations: ConversationItemWithTenant[];
   userId: string;
 }
 
 export function PlatformMessagesClient({ initialConversations, userId }: Props) {
-  const [conversations, setConversations] = useState(initialConversations);
+  const supabase = createClient();
+  const [conversations, setConversations] = useState<ConversationItemWithTenant[]>(initialConversations);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [body, setBody] = useState("");
+  const [sendError, setSendError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [showChat, setShowChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -38,10 +44,39 @@ export function PlatformMessagesClient({ initialConversations, userId }: Props) 
     }
   }, [activeId]);
 
+  // Realtime: listen across all tenants (no filter) — just refresh local state
+  useEffect(() => {
+    const channel = supabase.channel("platform-messages-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async () => {
+        // Re-fetch conversations the user is participant in
+        const { data } = await supabase
+          .from("conversation_participants")
+          .select(`last_read_at, archived_at, conversations!inner(id, subject, category, updated_at, tenant_id, messages(id, body, created_at, sender_id))`)
+          .eq("user_id", userId)
+          .is("archived_at", null);
+        if (data) {
+          const updated = data.map((row: any) => {
+            const conv = Array.isArray(row.conversations) ? row.conversations[0] : row.conversations;
+            if (!conv) return null;
+            const msgs = (Array.isArray(conv.messages) ? conv.messages : []).sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            const is_unread = !row.last_read_at || new Date(conv.updated_at) > new Date(row.last_read_at);
+            return { id: conv.id, subject: conv.subject, category: conv.category, updated_at: conv.updated_at, tenant_id: conv.tenant_id, last_read_at: row.last_read_at, is_unread, messages: msgs };
+          }).filter(Boolean) as ConversationItemWithTenant[];
+          setConversations(updated);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [supabase, userId]);
+
   const handleSend = () => {
     if (!body.trim() || !activeId || !activeConv) return;
+    setSendError(null);
     const msg = body.trim();
+    // Pass "" — sendMessageAction will resolve tenant_id from the conversation
+    const tenantId = (activeConv as ConversationItemWithTenant).tenant_id ?? "";
     setBody("");
+    // Optimistic update
     setConversations((prev) =>
       prev.map((c) =>
         c.id === activeId
@@ -50,8 +85,11 @@ export function PlatformMessagesClient({ initialConversations, userId }: Props) 
       )
     );
     startTransition(async () => {
-      // Use an empty-string tenant_id for platform-level — action handles this
-      await sendMessageAction(activeId, "", msg, "/platform/messages");
+      try {
+        await sendMessageAction(activeId, tenantId, msg, "/platform/messages");
+      } catch (e: any) {
+        setSendError(e.message ?? "Erreur lors de l'envoi");
+      }
     });
   };
 
@@ -167,11 +205,27 @@ export function PlatformMessagesClient({ initialConversations, userId }: Props) 
                   <div ref={messagesEndRef} />
                 </div>
 
-                <div className="px-4 py-3 border-t bg-white">
+                <div className="px-4 py-3 border-t bg-white space-y-2">
+                  {sendError && (
+                    <div className="flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
+                      <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                      <p className="text-xs text-destructive">{sendError}</p>
+                    </div>
+                  )}
                   <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex gap-2">
-                    <Input placeholder="Votre réponse..." value={body} onChange={(e) => setBody(e.target.value)} className="flex-1" id="platform-message-input" />
-                    <Button type="submit" disabled={!body.trim() || isPending} className="shrink-0" id="platform-send-btn">
-                      <Send className="h-4 w-4" />
+                    <Input
+                      placeholder="Votre réponse..."
+                      value={body}
+                      onChange={(e) => { setBody(e.target.value); setSendError(null); }}
+                      className="flex-1"
+                      id="platform-message-input"
+                    />
+                    <Button type="submit" disabled={!body.trim() || isPending} className="shrink-0 gap-1.5" id="platform-send-btn">
+                      {isPending ? (
+                        <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
                     </Button>
                   </form>
                 </div>

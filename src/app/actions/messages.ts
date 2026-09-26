@@ -96,16 +96,29 @@ export async function sendMessageAction(conversationId: string, tenantId: string
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
+  // If tenantId is not provided (e.g. platform admin), fetch it from the conversation
+  let resolvedTenantId = tenantId;
+  if (!resolvedTenantId) {
+    const { data: conv } = await supabase
+      .from("conversations")
+      .select("tenant_id")
+      .eq("id", conversationId)
+      .single();
+    resolvedTenantId = conv?.tenant_id ?? "";
+  }
+
+  if (!resolvedTenantId) throw new Error("tenant_id introuvable pour cette conversation");
+
   const { error } = await supabase.from("messages").insert({
     conversation_id: conversationId,
     sender_id: user.id,
-    tenant_id: tenantId,
+    tenant_id: resolvedTenantId,
     body,
   });
   if (error) throw error;
 
   await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId);
-  revalidatePath(revalidate);
+  if (revalidate) revalidatePath(revalidate);
 }
 
 // ─── Parent: start conversation with director ───────────────────────────────────
