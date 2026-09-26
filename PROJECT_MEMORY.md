@@ -881,3 +881,6 @@ Travail effectu :
 Rsultat :
 SUCCESS - Le dpt est configur pour que tout push sur la branche \main\ dclenche  la fois le build de Next.js (via Vercel) et l'application des migrations (via GitHub Actions).
 
+
+- Cration du script interactif \scripts/create-superadmin.ts\ permettant la cration scurise d'un compte Platform Admin sur la production via le client Supabase Admin.
+
