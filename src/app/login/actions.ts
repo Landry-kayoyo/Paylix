@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getDefaultDashboardPath } from '@/lib/user-profile'
 
 export async function login(formData: FormData) {
@@ -13,9 +14,6 @@ export async function login(formData: FormData) {
     password: formData.get('password') as string,
   }
   const requestedNext = formData.get('next')
-  const next = typeof requestedNext === 'string' && requestedNext.startsWith('/') && !requestedNext.startsWith('//')
-    ? requestedNext
-    : '/'
 
   const { data: signInData, error } = await supabase.auth.signInWithPassword(data)
 
@@ -23,16 +21,21 @@ export async function login(formData: FormData) {
     return { error: 'Identifiants invalides.' }
   }
 
-  const { data: memberships, error: membershipsError } = await supabase
+  // Use admin client to bypass RLS timing issues right after login
+  const { data: memberships } = await supabaseAdmin
     .from('user_memberships')
     .select('role')
     .eq('user_id', signInData.user.id)
     .eq('status', 'active')
 
-  const dashboardPath = membershipsError ? '/' : getDefaultDashboardPath((memberships ?? []) as Array<{ role?: string | null }>)
+  const dashboardPath = getDefaultDashboardPath((memberships ?? []) as Array<{ role?: string | null }>)
 
   revalidatePath('/', 'layout')
-  redirect(requestedNext && typeof requestedNext === 'string' && requestedNext.startsWith('/') && !requestedNext.startsWith('//') ? requestedNext : dashboardPath)
+  redirect(
+    typeof requestedNext === 'string' && requestedNext.startsWith('/') && !requestedNext.startsWith('//')
+      ? requestedNext
+      : dashboardPath
+  )
 }
 
 export async function logout() {

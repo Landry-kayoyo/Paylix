@@ -16,7 +16,13 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  const basePath = pathname.startsWith('/school') ? '/school' : '/parent';
+  const basePath = pathname.startsWith('/platform')
+    ? '/platform'
+    : pathname.startsWith('/school')
+    ? '/school'
+    : pathname.startsWith('/accountant')
+    ? '/accountant'
+    : '/parent';
 
   useEffect(() => {
     fetchNotifications();
