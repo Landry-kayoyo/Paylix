@@ -771,3 +771,42 @@ Résultat :
 SUCCESS — L'envoi Directeur → Support Paylix fonctionne. Le message de test est conservé dans la base locale.
 
 ---
+
+### 2026-09-26 — 15:05
+
+Agent :
+GitHub Copilot
+
+Phase :
+Messages parents — diffusion, réception et confirmation
+
+Tâche :
+Garantir l'envoi à tous les parents sélectionnés, remplacer les emojis du succès par une modale Paylix et vérifier la réception côté parent.
+
+Travail effectué :
+- `sendBroadcastAction()` valide l'appartenance active du directeur/comptable et récupère les memberships parents avec `supabaseAdmin` afin que la RLS ne masque pas les destinataires ; seuls les parents actifs du tenant sont ciblés.
+- Les diffusions créent une conversation privée et un message pour chaque parent ; les erreurs de création ne sont plus ignorées.
+- Le mode « parent spécifique » permet de sélectionner plusieurs parents, valide les IDs au serveur, ajoute tous les sélectionnés à la conversation et affiche leurs noms comme titre.
+- Ajout de la catégorie `broadcast` manquante dans la table référencée par les conversations.
+- Remplacement des confirmations avec emojis par une modale Paylix sobre avec icône, résumé des destinataires et bouton Fermer.
+
+Fichiers modifiés :
+- `src/app/actions/messages.ts`
+- `src/app/school/messages/messages-client.tsx`
+- `supabase/migrations/20260926000003_seed_broadcast_message_category.sql`
+- `PROJECT_MEMORY.md`
+
+Migrations :
+- `supabase migration up --local` → catégorie `broadcast` appliquée localement.
+
+Tests :
+- `npx vitest run tests/user-profile.test.ts tests/messages-default.test.ts` → 6 tests passés.
+- `npx tsc --noEmit` → succès.
+- Diffusion réelle de « Test de réception Paylix » à tous les parents ITC → succès modal : 3 destinataires.
+- Vérification DB : 3 conversations broadcast privées, une par parent actif, contenant toutes le même message.
+- Connexion avec le compte parent ITC Sébastien Kibwe Kabanda : `/parent/messages` affiche et ouvre le message de test.
+
+Résultat :
+SUCCESS — La diffusion à tous les parents est persistée pour les trois destinataires, et la réception a été vérifiée depuis le portail parent.
+
+---

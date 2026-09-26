@@ -21,6 +21,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -69,12 +70,14 @@ export function DirectorMessagesClient({
   // Broadcast / New message dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [targetMode, setTargetMode] = useState<TargetMode>("all");
-  const [selectedParentId, setSelectedParentId] = useState<string>("");
+  const [selectedParentIds, setSelectedParentIds] = useState<string[]>([]);
   const [parentSearch, setParentSearch] = useState("");
   const [broadcastSubject, setBroadcastSubject] = useState("");
   const [broadcastBody, setBroadcastBody] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [sendResult, setSendResult] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [confirmationMessage, setConfirmationMessage] = useState("");
 
   const activeConv = conversations.find((c) => c.id === activeId) ?? null;
   const unreadCount = conversations.filter((c) => c.is_unread).length;
@@ -92,13 +95,17 @@ export function DirectorMessagesClient({
   const filteredConversations = conversations.filter((c) =>
     !searchConv ||
     (c.subject ?? "").toLowerCase().includes(searchConv.toLowerCase()) ||
-    (c.tenant_name ?? "").toLowerCase().includes(searchConv.toLowerCase())
+    (c.tenant_name ?? "").toLowerCase().includes(searchConv.toLowerCase()) ||
+    (c.participant_names ?? []).some((name) => name.toLowerCase().includes(searchConv.toLowerCase()))
   );
 
-  const getConversationTitle = (conversation: ConversationItem) =>
-    conversation.category === "platform_support"
-      ? conversation.tenant_name ?? "Support Paylix"
-      : conversation.subject ?? "Sans sujet";
+  const getConversationTitle = (conversation: ConversationItem) => {
+    if (conversation.category === "platform_support") return "Support Paylix";
+    if (conversation.category !== "broadcast" && conversation.participant_names?.length) {
+      return conversation.participant_names.join(", ");
+    }
+    return conversation.subject ?? "Sans sujet";
+  };
 
   const filteredParents = parentOptions.filter((p) =>
     !parentSearch || (p.fullName ?? "").toLowerCase().includes(parentSearch.toLowerCase()) ||
@@ -150,30 +157,34 @@ export function DirectorMessagesClient({
 
   const handleSend2 = async () => {
     if (!broadcastSubject.trim() || !broadcastBody.trim()) return;
-    if (targetMode === "individual" && !selectedParentId) return;
+    if (targetMode === "individual" && selectedParentIds.length === 0) return;
 
     setIsSending(true);
-    setSendResult(null);
+    setSendError(null);
 
     try {
+      let successMessage: string;
       if (targetMode === "individual") {
-        // Direct conversation with one parent
-        const parent = parentOptions.find((p) => p.userId === selectedParentId);
-        await startConversationWithParentAction(tenantId, selectedParentId, broadcastSubject.trim(), broadcastBody.trim());
-        setSendResult({ type: "success", msg: `✅ Message envoyé à ${parent?.fullName ?? "le parent"}.` });
+        const selectedParents = parentOptions.filter((parent) => selectedParentIds.includes(parent.userId));
+        await startConversationWithParentAction(tenantId, selectedParentIds, broadcastSubject.trim(), broadcastBody.trim());
+        const recipientNames = selectedParents.map((parent) => parent.fullName || "Parent").join(", ");
+        successMessage = `Votre message a bien été envoyé à ${recipientNames}.`;
       } else {
         // Broadcast (all or financial)
         const result = await sendBroadcastAction(tenantId, broadcastSubject.trim(), broadcastBody.trim(), true);
-        setSendResult({ type: "success", msg: `✅ Diffusion envoyée à ${result.count} parent(s).` });
+        successMessage = `Votre message a bien été envoyé à ${result.count} parent(s).`;
       }
 
       setBroadcastSubject("");
       setBroadcastBody("");
-      setSelectedParentId("");
+      setSelectedParentIds([]);
       const updated = await getConversationsAction(tenantId);
       setConversations(updated);
+      setDialogOpen(false);
+      setConfirmationMessage(successMessage);
+      setConfirmationOpen(true);
     } catch (e: any) {
-      setSendResult({ type: "error", msg: `❌ ${e.message ?? "Erreur lors de l'envoi"}` });
+      setSendError(e.message ?? "Erreur lors de l'envoi.");
     } finally {
       setIsSending(false);
     }
@@ -192,7 +203,7 @@ export function DirectorMessagesClient({
   };
 
   const canSend = broadcastSubject.trim() && broadcastBody.trim() &&
-    (targetMode !== "individual" || selectedParentId);
+    (targetMode !== "individual" || selectedParentIds.length > 0);
 
   return (
     <div className="space-y-6">
@@ -210,7 +221,7 @@ export function DirectorMessagesClient({
             <p className="text-sm text-slate-500 mt-0.5">Communication avec les parents et l'équipe</p>
           </div>
 
-          <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) setSendResult(null); }}>
+          <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) setSendError(null); }}>
             <DialogTrigger
               render={
                 <Button className="gap-2 bg-primary hover:bg-primary/90" id="new-msg-director-btn">
@@ -251,32 +262,34 @@ export function DirectorMessagesClient({
                       }
                     />
                     <DropdownMenuContent className="w-72">
-                      <DropdownMenuLabel className="text-xs text-slate-500 font-normal">Mode d'envoi</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setTargetMode("all")} className="gap-2 cursor-pointer" id="target-all">
-                        <Users className="h-4 w-4 text-emerald-600" />
-                        <div>
-                          <p className="text-sm font-medium">Tous les parents</p>
-                          <p className="text-xs text-slate-400">Diffusion à {parentOptions.length} parent(s)</p>
-                        </div>
-                        {targetMode === "all" && <Check className="h-4 w-4 text-primary ml-auto" />}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setTargetMode("individual")} className="gap-2 cursor-pointer" id="target-individual">
-                        <UserCheck className="h-4 w-4 text-sky-600" />
-                        <div>
-                          <p className="text-sm font-medium">Un parent spécifique</p>
-                          <p className="text-xs text-slate-400">Conversation privée</p>
-                        </div>
-                        {targetMode === "individual" && <Check className="h-4 w-4 text-primary ml-auto" />}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setTargetMode("financial")} className="gap-2 cursor-pointer" id="target-financial">
-                        <Users className="h-4 w-4 text-amber-600" />
-                        <div>
-                          <p className="text-sm font-medium">Parents avec retard</p>
-                          <p className="text-xs text-slate-400">Obligations en retard de paiement</p>
-                        </div>
-                        {targetMode === "financial" && <Check className="h-4 w-4 text-primary ml-auto" />}
-                      </DropdownMenuItem>
+                      <DropdownMenuGroup>
+                        <DropdownMenuLabel className="text-xs text-slate-500 font-normal">Mode d'envoi</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setTargetMode("all")} className="gap-2 cursor-pointer" id="target-all">
+                          <Users className="h-4 w-4 text-emerald-600" />
+                          <div>
+                            <p className="text-sm font-medium">Tous les parents</p>
+                            <p className="text-xs text-slate-400">Diffusion à {parentOptions.length} parent(s)</p>
+                          </div>
+                          {targetMode === "all" && <Check className="h-4 w-4 text-primary ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTargetMode("individual")} className="gap-2 cursor-pointer" id="target-individual">
+                          <UserCheck className="h-4 w-4 text-sky-600" />
+                          <div>
+                            <p className="text-sm font-medium">Un parent spécifique</p>
+                            <p className="text-xs text-slate-400">Conversation privée</p>
+                          </div>
+                          {targetMode === "individual" && <Check className="h-4 w-4 text-primary ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTargetMode("financial")} className="gap-2 cursor-pointer" id="target-financial">
+                          <Users className="h-4 w-4 text-amber-600" />
+                          <div>
+                            <p className="text-sm font-medium">Parents avec retard</p>
+                            <p className="text-xs text-slate-400">Obligations en retard de paiement</p>
+                          </div>
+                          {targetMode === "financial" && <Check className="h-4 w-4 text-primary ml-auto" />}
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -284,7 +297,7 @@ export function DirectorMessagesClient({
                 {/* Individual parent selector */}
                 {targetMode === "individual" && (
                   <div>
-                    <label className="text-sm font-medium text-slate-700">Choisir le parent</label>
+                    <label className="text-sm font-medium text-slate-700">Choisir un ou plusieurs parents</label>
                     <div className="mt-1 relative">
                       <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                       <Input
@@ -299,30 +312,41 @@ export function DirectorMessagesClient({
                       {filteredParents.length === 0 ? (
                         <p className="px-3 py-3 text-xs text-slate-400 text-center">Aucun parent trouvé</p>
                       ) : (
-                        filteredParents.map((p) => (
-                          <button
-                            key={p.userId}
-                            type="button"
-                            onClick={() => setSelectedParentId(p.userId)}
-                            className={`w-full text-left px-3 py-2 flex items-center gap-2 transition-colors ${selectedParentId === p.userId ? "bg-emerald-50" : "hover:bg-slate-50"}`}
-                            id={`select-parent-${p.userId}`}
-                          >
-                            <div className="h-7 w-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">
-                              {(p.fullName || "?").charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-slate-900 truncate">{p.fullName || "Parent inconnu"}</p>
-                              {p.email && <p className="text-xs text-slate-400 truncate">{p.email}</p>}
-                            </div>
-                            {selectedParentId === p.userId && <Check className="h-4 w-4 text-primary shrink-0" />}
-                          </button>
-                        ))
+                        filteredParents.map((p) => {
+                          const isSelected = selectedParentIds.includes(p.userId);
+                          return (
+                            <button
+                              key={p.userId}
+                              type="button"
+                              aria-pressed={isSelected}
+                              onClick={() => setSelectedParentIds((previous) =>
+                                isSelected
+                                  ? previous.filter((userId) => userId !== p.userId)
+                                  : [...previous, p.userId]
+                              )}
+                              className={`w-full text-left px-3 py-2 flex items-center gap-2 transition-colors ${isSelected ? "bg-emerald-50" : "hover:bg-slate-50"}`}
+                              id={`select-parent-${p.userId}`}
+                            >
+                              <div className="h-7 w-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">
+                                {(p.fullName || "?").charAt(0).toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-slate-900 truncate">{p.fullName || "Parent inconnu"}</p>
+                                {p.email && <p className="text-xs text-slate-400 truncate">{p.email}</p>}
+                              </div>
+                              {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                            </button>
+                          );
+                        })
                       )}
                     </div>
-                    {selectedParentId && (
+                    {selectedParentIds.length > 0 && (
                       <p className="mt-1 text-xs text-emerald-600 flex items-center gap-1">
                         <Check className="h-3 w-3" />
-                        {parentOptions.find((p) => p.userId === selectedParentId)?.fullName || "Parent inconnu"} sélectionné(e)
+                        {selectedParentIds.length} parent(s) sélectionné(s) : {parentOptions
+                          .filter((parent) => selectedParentIds.includes(parent.userId))
+                          .map((parent) => parent.fullName || "Parent")
+                          .join(", ")}
                       </p>
                     )}
                   </div>
@@ -360,9 +384,9 @@ export function DirectorMessagesClient({
                 </div>
 
                 {/* Result feedback */}
-                {sendResult && (
-                  <div className={`rounded-md border px-3 py-2 text-sm ${sendResult.type === "success" ? "bg-emerald-50 border-emerald-100 text-emerald-700" : "bg-destructive/10 border-destructive/20 text-destructive"}`}>
-                    {sendResult.msg}
+                {sendError && (
+                  <div role="alert" className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {sendError}
                   </div>
                 )}
 
@@ -379,6 +403,20 @@ export function DirectorMessagesClient({
                   )}
                 </Button>
               </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
+            <DialogContent className="max-w-md rounded-2xl">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                <Check className="h-7 w-7" aria-hidden="true" />
+              </div>
+              <DialogHeader className="text-center">
+                <DialogTitle>Message envoyé</DialogTitle>
+                <DialogDescription>{confirmationMessage}</DialogDescription>
+              </DialogHeader>
+              <Button className="w-full" onClick={() => setConfirmationOpen(false)}>
+                Fermer
+              </Button>
             </DialogContent>
           </Dialog>
         </div>
@@ -461,7 +499,7 @@ export function DirectorMessagesClient({
                       {activeConv.category === "broadcast"
                         ? "📢 Message diffusé"
                         : activeConv.category === "platform_support"
-                          ? "💬 Support Paylix"
+                          ? "💬 Administration de la plateforme Paylix"
                           : "💬 Conversation individuelle"}
                     </p>
                   </div>
