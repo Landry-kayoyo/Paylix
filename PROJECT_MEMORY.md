@@ -516,4 +516,26 @@ Décisions :
 - Optimistic UI pour la fluidité, couplé avec Supabase Realtime (schema public, filtre par tenant_id).
 - L'audit final et la mise en production des notifications associées nécessiteront des tests end-to-end dans la prochaine phase.
 
+### 2026-09-26 — 09:20
+
+Agent :
+Antigravity
+
+Phase :
+Messages & Chat interne Paylix (Phase 18) - Dernières finitions
+
+Tâche :
+- Implémentation du composant `MessageBell` intégré dans le Header global (`src/components/layout/header.tsx`).
+- Compteur dynamique `last_read_at` avec écouteur Realtime pour les badges de notification non-lues.
+- Refonte de la vue Directeur (`src/app/school/messages/messages-client.tsx`) avec un système de Dialog complet. Ce composant expose le ciblage de l'audience avec les critères métier (`ParentAudienceService`) avant l'envoi des diffusions groupées.
+
+Fichiers modifiés :
+- `src/components/layout/header.tsx`
+- `src/components/notifications/message-bell.tsx` (Créé)
+- `src/app/school/messages/messages-client.tsx` (Mise à jour)
+- `PROJECT_MEMORY.md` (Mise à jour)
+
+Résultat :
+SUCCESS (L'entièreté des requêtes de la Phase 18 est complétée, y compris la notification header et la modale Directeur).
+
 ---

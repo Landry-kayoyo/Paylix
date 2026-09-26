@@ -1,10 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { MessageCircle, Search, Edit } from "lucide-react";
+import { MessageCircle, Search, Edit, Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { sendMessageAction, sendBroadcastAction, markConversationAsReadAction } from "@/app/actions/messages";
 
 export function MessagesClient({ 
   initialConversations, 
@@ -18,25 +27,32 @@ export function MessagesClient({
   const supabase = createClient();
   const [conversations, setConversations] = useState(initialConversations);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [newMessageBody, setNewMessageBody] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Dialog state
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [targetType, setTargetType] = useState<"all" | "financial" | "specific_parents">("all");
+  const [newSubject, setNewSubject] = useState("");
+  const [newBroadcastBody, setNewBroadcastBody] = useState("");
+  const [category, setCategory] = useState("general");
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
-    // Basic realtime subscription for new messages
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activeConversationId, conversations]);
+
+  useEffect(() => {
+    if (activeConversationId) {
+      markConversationAsReadAction(activeConversationId);
+    }
+  }, [activeConversationId]);
+
+  useEffect(() => {
     const channel = supabase.channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        (payload) => {
-          // Trigger a refresh or optimistically add the message to the conversation
-          // This is a simplified approach
-          console.log('New message received!', payload);
-          // TODO: Update state
-        }
-      )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `tenant_id=eq.${tenantId}` }, () => {
+         window.location.reload(); 
+      })
       .subscribe();
 
     return () => {
@@ -44,30 +60,98 @@ export function MessagesClient({
     };
   }, [tenantId, supabase]);
 
+  const handleSendMessage = async () => {
+    if (!newMessageBody.trim() || !activeConversationId) return;
+    const body = newMessageBody;
+    setNewMessageBody("");
+    
+    await sendMessageAction(activeConversationId, tenantId, body, '/school/messages');
+    window.location.reload();
+  };
+
+  const handleSendBroadcast = async () => {
+    setIsSending(true);
+    try {
+      // Basic mock criteria for now. In a full implementation, you'd pull schoolYearId and refine criteria.
+      const criteria = {
+        tenantId,
+        schoolYearId: 'dummy-year-id', 
+        target: targetType,
+        financial: targetType === 'financial' ? { status: 'overdue' as const } : undefined
+      };
+      
+      await sendBroadcastAction(tenantId, 'dummy-year-id', newSubject, newBroadcastBody, category, criteria);
+      setIsDialogOpen(false);
+      window.location.reload();
+    } catch (error) {
+      console.error(error);
+      alert("Erreur lors de l'envoi de la diffusion.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const activeConversation = conversations.find(c => c.conversations.id === activeConversationId)?.conversations;
 
   return (
     <div className="flex h-[calc(100vh-80px)] bg-white rounded-xl shadow-sm border overflow-hidden mt-6">
-      {/* Sidebar - Conversations List */}
       <div className="w-1/3 border-r flex flex-col bg-slate-50/50">
         <div className="p-4 border-b bg-white flex justify-between items-center">
           <h2 className="font-semibold text-lg flex items-center gap-2">
             <MessageCircle className="w-5 h-5 text-emerald-600" />
             Messages
           </h2>
-          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">
-            <Edit className="w-4 h-4 mr-2" />
-            Nouveau
-          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+                <Edit className="w-4 h-4 mr-2" />
+                Nouveau
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Nouvelle Diffusion</DialogTitle>
+                <DialogDescription>
+                  Sélectionnez votre audience pour envoyer un message groupé sécurisé.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div>
+                  <label className="text-sm font-medium">Audience cible</label>
+                  <select 
+                    className="w-full mt-1 p-2 border rounded-md"
+                    value={targetType}
+                    onChange={(e: any) => setTargetType(e.target.value)}
+                  >
+                    <option value="all">Tous les parents</option>
+                    <option value="financial">Parents avec obligations en retard</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Sujet</label>
+                  <Input value={newSubject} onChange={e => setNewSubject(e.target.value)} placeholder="Objet du message" className="mt-1" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Message</label>
+                  <textarea 
+                    className="w-full mt-1 min-h-[100px] p-3 rounded-md border"
+                    placeholder="Contenu..."
+                    value={newBroadcastBody}
+                    onChange={e => setNewBroadcastBody(e.target.value)}
+                  />
+                </div>
+                <Button onClick={handleSendBroadcast} disabled={isSending || !newSubject || !newBroadcastBody} className="w-full bg-emerald-600">
+                  {isSending ? 'Envoi...' : 'Envoyer la diffusion'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
         
         <div className="p-3 border-b bg-white">
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <Input 
-              placeholder="Rechercher..." 
-              className="pl-9 bg-slate-50 border-slate-200"
-            />
+            <Input placeholder="Rechercher..." className="pl-9 bg-slate-50 border-slate-200" />
           </div>
         </div>
 
@@ -87,9 +171,6 @@ export function MessagesClient({
                   <span className="font-medium text-slate-900 truncate">
                     {c.conversations.subject || 'Sans sujet'}
                   </span>
-                  <span className="text-xs text-slate-500 whitespace-nowrap ml-2">
-                    {new Date(c.conversations.updated_at).toLocaleDateString()}
-                  </span>
                 </div>
                 <div className="text-sm text-slate-600 truncate">
                   {c.conversations.category === 'broadcast' ? '📢 Diffusion' : '💬 Conversation'}
@@ -100,7 +181,6 @@ export function MessagesClient({
         </div>
       </div>
 
-      {/* Main Chat Area */}
       <div className="flex-1 flex flex-col bg-slate-50/30">
         {activeConversation ? (
           <>
@@ -125,16 +205,16 @@ export function MessagesClient({
                   </div>
                 );
               })}
+              <div ref={messagesEndRef} />
             </div>
 
             <div className="p-4 bg-white border-t">
-              <div className="flex gap-2">
-                <Input 
-                  placeholder="Écrire un message..." 
-                  className="flex-1"
-                />
-                <Button className="bg-emerald-600 hover:bg-emerald-700">Envoyer</Button>
-              </div>
+              <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex gap-2">
+                <Input placeholder="Écrire un message..." value={newMessageBody} onChange={e => setNewMessageBody(e.target.value)} className="flex-1" />
+                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={!newMessageBody.trim()}>
+                  <Send className="w-4 h-4" />
+                </Button>
+              </form>
             </div>
           </>
         ) : (

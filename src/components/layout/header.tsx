@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Sidebar } from "./sidebar";
 import { logout } from "@/app/login/actions";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { MessageBell } from "@/components/notifications/message-bell";
 import Image from "next/image";
 import { OfflineIndicator } from "@/components/pwa/offline-indicator";
 import { getUserInitials } from "@/lib/user-profile";
@@ -80,6 +81,7 @@ export function Header({ title, role = "director", collapsed = false, onToggleCo
         </form>
         <OfflineIndicator />
         {actions}
+        <MessageBell role={role} />
         <NotificationBell />
 
         <DropdownMenu>
