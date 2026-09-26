@@ -810,3 +810,22 @@ RÃ©sultat :
 SUCCESS â€” La diffusion Ã  tous les parents est persistÃ©e pour les trois destinataires, et la rÃ©ception a Ã©tÃ© vÃ©rifiÃ©e depuis le portail parent.
 
 ---
+
+### 2026-09-26 — 15:20
+
+Agent :
+Antigravity
+
+Phase :
+Messages — notification dynamique
+
+Tâche :
+Améliorer le MessageBell pour afficher un bref aperçu dynamique du message entrant, sans rechargement.
+
+Travail effectué :
+- Modification de src/components/notifications/message-bell.tsx pour inclure un système de toast dynamique déclenché par l'abonnement Realtime.
+- Ajout d'animations fluides au survol et à l'apparition.
+
+Résultat :
+SUCCESS — La notification s'affiche proprement et on peut cliquer dessus pour ouvrir les messages.
+
