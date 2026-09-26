@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { unstable_noStore as noStore } from "next/cache";
 
@@ -132,7 +133,8 @@ export async function startConversationWithDirectorAction(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  const { data: directors } = await supabase
+  // Use supabaseAdmin to bypass RLS, as a parent may not be able to read directors' memberships
+  const { data: directors } = await supabaseAdmin
     .from("user_memberships")
     .select("user_id")
     .eq("tenant_id", tenantId)
