@@ -69,7 +69,7 @@ export default async function PlatformMessagesPage() {
       last_read_at,
       archived_at,
       conversations!inner(
-        id, subject, category, updated_at, tenant_id,
+        id, subject, category, updated_at, tenant_id, tenants(name),
         messages(id, body, created_at, sender_id)
       )
     `)
@@ -79,6 +79,7 @@ export default async function PlatformMessagesPage() {
   const conversations = (convData ?? []).map((row: any) => {
     const conv = Array.isArray(row.conversations) ? row.conversations[0] : row.conversations;
     if (!conv) return null;
+    const tenant = Array.isArray(conv.tenants) ? conv.tenants[0] : conv.tenants;
     const msgs = Array.isArray(conv.messages) ? conv.messages : [];
     msgs.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     const is_unread = !row.last_read_at || new Date(conv.updated_at) > new Date(row.last_read_at);
@@ -88,6 +89,7 @@ export default async function PlatformMessagesPage() {
       category: conv.category,
       updated_at: conv.updated_at,
       tenant_id: conv.tenant_id,
+      tenant_name: tenant?.name ?? null,
       last_read_at: row.last_read_at,
       is_unread,
       messages: msgs,

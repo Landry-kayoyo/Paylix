@@ -22,6 +22,7 @@ import {
 
 interface ConversationItemWithTenant extends ConversationItem {
   tenant_id?: string;
+  tenant_name?: string | null;
 }
 
 interface Props {
@@ -78,16 +79,17 @@ export function PlatformMessagesClient({ initialConversations, userId, recipient
         // Re-fetch conversations the user is participant in
         const { data } = await supabase
           .from("conversation_participants")
-          .select(`last_read_at, archived_at, conversations!inner(id, subject, category, updated_at, tenant_id, messages(id, body, created_at, sender_id))`)
+          .select(`last_read_at, archived_at, conversations!inner(id, subject, category, updated_at, tenant_id, tenants(name), messages(id, body, created_at, sender_id))`)
           .eq("user_id", userId)
           .is("archived_at", null);
         if (data) {
           const updated = data.map((row: any) => {
             const conv = Array.isArray(row.conversations) ? row.conversations[0] : row.conversations;
             if (!conv) return null;
+            const tenant = Array.isArray(conv.tenants) ? conv.tenants[0] : conv.tenants;
             const msgs = (Array.isArray(conv.messages) ? conv.messages : []).sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
             const is_unread = !row.last_read_at || new Date(conv.updated_at) > new Date(row.last_read_at);
-            return { id: conv.id, subject: conv.subject, category: conv.category, updated_at: conv.updated_at, tenant_id: conv.tenant_id, last_read_at: row.last_read_at, is_unread, messages: msgs };
+            return { id: conv.id, subject: conv.subject, category: conv.category, updated_at: conv.updated_at, tenant_id: conv.tenant_id, tenant_name: tenant?.name ?? null, last_read_at: row.last_read_at, is_unread, messages: msgs };
           }).filter(Boolean) as ConversationItemWithTenant[];
           setConversations(updated);
         }
@@ -145,6 +147,7 @@ export function PlatformMessagesClient({ initialConversations, userId, recipient
         category: "general",
         updated_at: createdAt,
         tenant_id: recipient.tenantId,
+        tenant_name: recipient.tenantName,
         last_read_at: createdAt,
         is_unread: false,
         messages: [{
@@ -292,7 +295,7 @@ export function PlatformMessagesClient({ initialConversations, userId, recipient
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           <span className={`text-sm truncate ${c.is_unread ? "font-semibold text-slate-900" : "font-medium text-slate-700"}`}>
-                            {c.subject ?? "Sans sujet"}
+                            {c.tenant_name ?? c.subject ?? "Établissement"}
                           </span>
                           {c.is_unread && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
                         </div>
@@ -321,8 +324,8 @@ export function PlatformMessagesClient({ initialConversations, userId, recipient
                     É
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">{activeConv.subject ?? "Sans sujet"}</p>
-                    <p className="text-xs text-slate-500">Établissement</p>
+                    <p className="text-sm font-semibold text-slate-900">{activeConv.tenant_name ?? "Établissement"}</p>
+                    <p className="text-xs text-slate-500">{activeConv.subject ? `Sujet : ${activeConv.subject}` : "Conversation"}</p>
                   </div>
                 </div>
 

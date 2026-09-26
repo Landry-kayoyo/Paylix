@@ -639,3 +639,39 @@ Décisions :
 - Étendre les destinataires aux comptables ou parents uniquement si le périmètre fonctionnel est confirmé.
 
 ---
+
+### 2026-09-26 — 14:30
+
+Agent :
+GitHub Copilot
+
+Phase :
+Messages Plateforme — nom d'établissement et correction RLS
+
+Tâche :
+Remplacer le sujet par le nom de l'établissement comme libellé de conversation et corriger l'erreur PostgreSQL 42P17 à l'envoi.
+
+Travail effectué :
+- Chargement et affichage du nom de l'établissement dans la liste et l'en-tête de conversation ; le sujet reste affiché comme sous-libellé.
+- Ajout d'une fonction SQL SECURITY DEFINER à portée limitée sur l'utilisateur authentifié et remplacement des policies RLS récursives sur conversations, participants et messages.
+- Application de la migration sur la base Supabase locale.
+
+Fichiers modifiés :
+- `src/app/platform/messages/page.tsx`
+- `src/app/platform/messages/messages-client.tsx`
+- `supabase/migrations/20260926000001_fix_messages_rls_recursion.sql`
+- `PROJECT_MEMORY.md`
+
+Tests :
+- `npx vitest run tests/user-profile.test.ts tests/messages-default.test.ts` → 6 tests passés.
+- `npx tsc --noEmit` → succès.
+- Test SQL d'insertion de message avec rôle `authenticated` et policies RLS → INSERT réussi, transaction annulée ensuite.
+- Validation navigateur : les conversations affichent les noms d'établissement et le sujet en dessous.
+
+Résultat :
+SUCCESS — La récursion RLS bloquant l'insertion de messages est corrigée localement ; aucun message de test n'a été conservé.
+
+Point de sécurité à traiter séparément :
+- Le diagnostic Supabase a signalé que `public.message_categories` a RLS désactivé. Aucune modification automatique n'a été faite, car il faut définir les policies de lecture/écriture attendues avant d'activer RLS.
+
+---
