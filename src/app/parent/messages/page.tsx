@@ -1,33 +1,42 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getConversationsAction } from "@/app/actions/messages";
 import { ParentMessagesClient } from "./messages-client";
-import { MessagesService } from "@/lib/messages";
+import { unstable_noStore as noStore } from "next/cache";
+
+export const metadata = {
+  title: "Messages — Paylix",
+  description: "Votre messagerie avec l'établissement scolaire.",
+};
 
 export default async function ParentMessagesPage() {
+  noStore();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return <div>Non authentifié</div>;
+  if (!user) redirect("/login");
 
-  // En mode multi-tenant, le parent a un espace actif (tenantId). 
-  // Dans cet exemple on prend le premier tenant actif.
+  // Get active parent membership + tenant info
   const { data: memberships } = await supabase
     .from("user_memberships")
-    .select("tenant_id, tenants(name)")
+    .select("tenant_id, tenants(id, name, city)")
     .eq("user_id", user.id)
-    .eq("status", "active")
-    .in("role", ["parent"]);
+    .eq("role", "parent")
+    .eq("status", "active");
 
-  if (!memberships || memberships.length === 0) return <div>Accès refusé.</div>;
-  const activeTenantId = memberships[0].tenant_id;
-  const tenantsField = memberships[0].tenants;
-  const tenantName = (Array.isArray(tenantsField) ? tenantsField[0]?.name : (tenantsField as any)?.name) || "L'établissement";
+  if (!memberships || memberships.length === 0) redirect("/login");
 
-  const messagesService = new MessagesService(supabase);
-  const initialConversations = await messagesService.getConversations(activeTenantId);
+  const activeMembership = memberships[0];
+  const tenantRaw = activeMembership.tenants;
+  const tenant = Array.isArray(tenantRaw) ? tenantRaw[0] : tenantRaw;
+  const tenantId = activeMembership.tenant_id;
+  const tenantName = (tenant as any)?.name ?? "L'établissement";
+
+  const conversations = await getConversationsAction(tenantId);
 
   return (
-    <ParentMessagesClient 
-      initialConversations={initialConversations} 
-      tenantId={activeTenantId}
+    <ParentMessagesClient
+      initialConversations={conversations}
+      tenantId={tenantId}
       tenantName={tenantName}
       userId={user.id}
     />

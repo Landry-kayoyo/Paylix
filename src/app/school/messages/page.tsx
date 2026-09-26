@@ -1,31 +1,48 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { MessagesClient } from "./messages-client";
-import { MessagesService } from "@/lib/messages";
+import { getConversationsAction } from "@/app/actions/messages";
+import { DirectorMessagesClient } from "./messages-client";
+import { unstable_noStore as noStore } from "next/cache";
+
+export const metadata = {
+  title: "Messages — Paylix",
+  description: "Messagerie interne de l'établissement.",
+};
 
 export default async function DirectorMessagesPage() {
+  noStore();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return <div>Non authentifié</div>;
+  if (!user) redirect("/login");
 
   const { data: membership } = await supabase
     .from("user_memberships")
     .select("tenant_id")
     .eq("user_id", user.id)
     .eq("status", "active")
-    .in("role", ["director"])
+    .in("role", ["director", "accountant"])
     .single();
 
-  if (!membership?.tenant_id) return <div>Accès refusé.</div>;
+  if (!membership?.tenant_id) redirect("/login");
+
   const tenantId = membership.tenant_id;
 
-  const messagesService = new MessagesService(supabase);
-  const initialConversations = await messagesService.getConversations(tenantId);
+  // Get school year for broadcast targeting
+  const { data: schoolYear } = await supabase
+    .from("school_years")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true)
+    .single();
+
+  const conversations = await getConversationsAction(tenantId);
 
   return (
-    <MessagesClient 
-      initialConversations={initialConversations} 
+    <DirectorMessagesClient
+      initialConversations={conversations}
       tenantId={tenantId}
       userId={user.id}
+      schoolYearId={schoolYear?.id ?? null}
     />
   );
 }
