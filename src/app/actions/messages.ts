@@ -12,6 +12,7 @@ export interface ConversationItem {
   subject: string | null;
   category: string;
   updated_at: string;
+  tenant_name?: string | null;
   last_read_at: string | null;
   is_unread: boolean;
   messages: {
@@ -43,7 +44,7 @@ export async function getConversationsAction(tenantId: string): Promise<Conversa
       last_read_at,
       archived_at,
       conversations!inner(
-        id, subject, category, updated_at, tenant_id,
+        id, subject, category, updated_at, tenant_id, tenants(name),
         messages(id, body, created_at, sender_id)
       )
     `)
@@ -60,6 +61,7 @@ export async function getConversationsAction(tenantId: string): Promise<Conversa
       const conv = firstOf((row as any).conversations);
       if (!conv) return null;
       if (tenantId && conv.tenant_id !== tenantId) return null;
+      const tenant = firstOf(conv.tenants);
 
       const msgs: any[] = Array.isArray(conv.messages) ? conv.messages : [];
       msgs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
@@ -71,6 +73,7 @@ export async function getConversationsAction(tenantId: string): Promise<Conversa
         subject: conv.subject,
         category: conv.category,
         updated_at: conv.updated_at,
+        tenant_name: tenant?.name ?? null,
         last_read_at: row.last_read_at,
         is_unread,
         messages: msgs,

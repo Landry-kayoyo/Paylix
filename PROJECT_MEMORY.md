@@ -715,3 +715,34 @@ Limite d'application :
 - La migration a été appliquée à Supabase local ; elle reste à appliquer au projet distant lorsqu'il doit recevoir ces changements.
 
 ---
+
+### 2026-09-26 — 14:45
+
+Agent :
+GitHub Copilot
+
+Phase :
+Messages Directeur — libellé du support plateforme
+
+Tâche :
+Afficher le nom de l'établissement dans la vue Directeur pour les conversations de support Platform sans sujet.
+
+Travail effectué :
+- Ajout du nom associé au tenant dans les données de conversation renvoyées par `getConversationsAction()`.
+- Le client Directeur utilise le nom de l'établissement comme titre pour `platform_support`, avec « Support Paylix » en sous-titre ; les autres conversations continuent d'utiliser leur sujet.
+- La recherche de conversations inclut aussi le nom de l'établissement.
+
+Fichiers modifiés :
+- `src/app/actions/messages.ts`
+- `src/app/school/messages/messages-client.tsx`
+- `PROJECT_MEMORY.md`
+
+Tests :
+- `npx vitest run tests/user-profile.test.ts tests/messages-default.test.ts` → 6 tests passés.
+- `npx tsc --noEmit` → succès.
+- Validation navigateur avec le compte directeur : la discussion apparaît sous le nom « Institut Technique Commercial Lubumbashi », avec « Support Paylix » en sous-titre.
+
+Résultat :
+SUCCESS — La conversation Platform n'est plus libellée « Sans sujet » dans la boîte du directeur.
+
+---

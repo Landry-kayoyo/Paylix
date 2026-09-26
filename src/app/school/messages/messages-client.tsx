@@ -90,8 +90,15 @@ export function DirectorMessagesClient({
   }, [activeId, conversations]);
 
   const filteredConversations = conversations.filter((c) =>
-    !searchConv || (c.subject ?? "").toLowerCase().includes(searchConv.toLowerCase())
+    !searchConv ||
+    (c.subject ?? "").toLowerCase().includes(searchConv.toLowerCase()) ||
+    (c.tenant_name ?? "").toLowerCase().includes(searchConv.toLowerCase())
   );
+
+  const getConversationTitle = (conversation: ConversationItem) =>
+    conversation.category === "platform_support"
+      ? conversation.tenant_name ?? "Support Paylix"
+      : conversation.subject ?? "Sans sujet";
 
   const filteredParents = parentOptions.filter((p) =>
     !parentSearch || (p.fullName ?? "").toLowerCase().includes(parentSearch.toLowerCase()) ||
@@ -420,7 +427,7 @@ export function DirectorMessagesClient({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           <span className={`text-sm truncate ${c.is_unread ? "font-semibold text-slate-900" : "font-medium text-slate-700"}`}>
-                            {c.subject ?? "Sans sujet"}
+                            {getConversationTitle(c)}
                           </span>
                           {c.is_unread && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
                         </div>
@@ -449,9 +456,13 @@ export function DirectorMessagesClient({
                     {activeConv.category === "broadcast" ? <Radio className="h-3.5 w-3.5" /> : "P"}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-900">{activeConv.subject ?? "Sans sujet"}</p>
+                    <p className="text-sm font-semibold text-slate-900">{getConversationTitle(activeConv)}</p>
                     <p className="text-xs text-slate-500">
-                      {activeConv.category === "broadcast" ? "📢 Message diffusé" : "💬 Conversation individuelle"}
+                      {activeConv.category === "broadcast"
+                        ? "📢 Message diffusé"
+                        : activeConv.category === "platform_support"
+                          ? "💬 Support Paylix"
+                          : "💬 Conversation individuelle"}
                     </p>
                   </div>
                 </div>
