@@ -418,6 +418,63 @@ Décisions :
 - Section storytelling Landry Kayoyo plus détaillée si demandée
 - Mockup produit UI avec vrais composants si demandé
 
+---
+
+### 2026-09-26 — 14:00
+
+Agent :
+GitHub Copilot
+
+Phase :
+Correction / validation Messages
+
+Tâche :
+Corriger la sélection automatique de la conversation active dans le module Messages et valider le comportement réel sous session authentifiée.
+
+État avant intervention :
+- Le module Messages ne sélectionnait pas automatiquement une conversation par défaut.
+- Le route `/platform/messages` pouvait rediriger vers `/login` lorsque les services Supabase locaux étaient arrêtés.
+- Le correctif UI était en place mais le test runtime réel n’était pas encore validé dans un contexte authentifié stable.
+
+Travail effectué :
+- Identification du bug de sélection dans le client Messages Platform / School / Parent.
+- Ajout d’une logique partagée `getDefaultActiveConversationId()` centralisant la règle : première conversation non lue, sinon première conversation disponible.
+- Injection de cette logique dans les clients Messages afin d’ouvrir automatiquement un chat au chargement.
+- Ajout d’un test de régression `tests/messages-default.test.ts` couvrant les trois cas de sélection.
+- Redémarrage des services Supabase locaux (`supabase start`) pour restaurer les cookies d’authentification.
+- Re-validation du flux réel sur `/platform/messages` dans le navigateur avec une session authentifiée.
+- Vérification TypeScript via `npx tsc --noEmit`.
+
+Fichiers modifiés :
+- `src/lib/messages-utils.ts` (créé)
+- `src/app/platform/messages/messages-client.tsx` (modifié)
+- `src/app/school/messages/messages-client.tsx` (modifié)
+- `src/app/parent/messages/messages-client.tsx` (modifié)
+- `tests/messages-default.test.ts` (créé)
+- `PROJECT_MEMORY.md` (mis à jour)
+
+Migrations :
+- Aucune
+
+Tests :
+- `npx vitest run tests/messages-default.test.ts` → 3 tests passés.
+- `npx tsc --noEmit` → succès (sortie vide, exit code 0).
+- Validation navigateur : `/platform/messages` chargée sous session authentifiée après redémarrage de Supabase.
+
+Résultat :
+SUCCESS — La conversation par défaut est désormais sélectionnée automatiquement, et le module Messages se charge correctement dans le contexte runtime réel après restauration de l’environnement local.
+
+Problèmes :
+- Les services Supabase locaux avaient été arrêtés, ce qui provoquait des redirections de session vers `/login` même si le correctif UI était bon.
+
+Décisions :
+- La logique de sélection par défaut est basée sur les conversations non lues en priorité pour garder le comportement utilisateur attendu.
+- La validation finale exige un contexte réel d’authentification et pas seulement des tests unitaires.
+
+À poursuivre :
+- Surveiller le comportement en temps réel lors de nouveaux messages entrants.
+- Vérifier le comportement sur les rôles School / Parent lorsque de vraies conversations de test sont créées.
+
 
 ---
 

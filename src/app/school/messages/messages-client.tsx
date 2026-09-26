@@ -36,6 +36,7 @@ import {
 } from "@/app/actions/messages";
 import type { ConversationItem } from "@/app/actions/messages";
 import type { ParentOption, ClassOption } from "./page";
+import { getDefaultActiveConversationId } from "@/lib/messages-utils";
 
 type TargetMode = "all" | "individual" | "financial";
 
@@ -77,6 +78,16 @@ export function DirectorMessagesClient({
 
   const activeConv = conversations.find((c) => c.id === activeId) ?? null;
   const unreadCount = conversations.filter((c) => c.is_unread).length;
+
+  useEffect(() => {
+    if (!activeId && conversations.length > 0) {
+      const nextActiveId = getDefaultActiveConversationId(conversations);
+      if (nextActiveId) {
+        setActiveId(nextActiveId);
+        setShowChat(true);
+      }
+    }
+  }, [activeId, conversations]);
 
   const filteredConversations = conversations.filter((c) =>
     !searchConv || (c.subject ?? "").toLowerCase().includes(searchConv.toLowerCase())

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { sendMessageAction, markReadAction } from "@/app/actions/messages";
 import type { ConversationItem } from "@/app/actions/messages";
+import { getDefaultActiveConversationId } from "@/lib/messages-utils";
 
 interface ConversationItemWithTenant extends ConversationItem {
   tenant_id?: string;
@@ -30,6 +31,16 @@ export function PlatformMessagesClient({ initialConversations, userId }: Props) 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const activeConv = conversations.find((c) => c.id === activeId) ?? null;
+
+  useEffect(() => {
+    if (!activeId && conversations.length > 0) {
+      const nextActiveId = getDefaultActiveConversationId(conversations);
+      if (nextActiveId) {
+        setActiveId(nextActiveId);
+        setShowChat(true);
+      }
+    }
+  }, [activeId, conversations]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

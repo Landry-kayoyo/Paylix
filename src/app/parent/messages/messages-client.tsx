@@ -22,6 +22,7 @@ import {
   getConversationsAction,
 } from "@/app/actions/messages";
 import type { ConversationItem } from "@/app/actions/messages";
+import { getDefaultActiveConversationId } from "@/lib/messages-utils";
 
 interface Props {
   initialConversations: ConversationItem[];
@@ -48,6 +49,16 @@ export function ParentMessagesClient({ initialConversations, tenantId, tenantNam
   const [showChat, setShowChat] = useState(false);
 
   const activeConv = conversations.find((c) => c.id === activeId) ?? null;
+
+  useEffect(() => {
+    if (!activeId && conversations.length > 0) {
+      const nextActiveId = getDefaultActiveConversationId(conversations);
+      if (nextActiveId) {
+        setActiveId(nextActiveId);
+        setShowChat(true);
+      }
+    }
+  }, [activeId, conversations]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
