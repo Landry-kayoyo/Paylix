@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { login } from './actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -124,7 +124,14 @@ export default function LoginPage() {
             className="h-12 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-[0_10px_25px_rgba(16,185,129,0.3)] transition-all hover:from-emerald-500 hover:to-emerald-700 focus-visible:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500/30"
             disabled={pending}
           >
-            {pending ? 'Connexion en cours...' : 'Se connecter'}
+            {pending ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Connexion en cours...
+              </>
+            ) : (
+              'Se connecter'
+            )}
           </Button>
         </form>
       </div>
