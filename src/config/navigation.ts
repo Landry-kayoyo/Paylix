@@ -5,6 +5,7 @@ import {
   CreditCard, 
   Home, 
   LayoutDashboard, 
+  MessageCircle,
   PieChart, 
   Settings, 
   Users, 
@@ -70,6 +71,12 @@ export const navigationConfig: NavGroup[] = [
         icon: ReceiptText,
         roles: ["parent"],
       },
+      {
+        title: "Messages",
+        href: "/parent/messages",
+        icon: MessageCircle,
+        roles: ["parent"],
+      },
     ]
   },
   {
@@ -79,6 +86,12 @@ export const navigationConfig: NavGroup[] = [
         title: "Écoles",
         href: "/platform/schools",
         icon: Building2,
+        roles: ["platform_admin"],
+      },
+      {
+        title: "Messages",
+        href: "/platform/messages",
+        icon: MessageCircle,
         roles: ["platform_admin"],
       },
       {
@@ -115,6 +128,12 @@ export const navigationConfig: NavGroup[] = [
         title: "Utilisateurs / Équipe",
         href: "/school/users",
         icon: UserCog,
+        roles: ["director"],
+      },
+      {
+        title: "Messages",
+        href: "/school/messages",
+        icon: MessageCircle,
         roles: ["director"],
       },
     ]
