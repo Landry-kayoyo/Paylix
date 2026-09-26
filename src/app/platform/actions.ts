@@ -176,21 +176,26 @@ export async function createTenantWithDirector(data: z.infer<typeof createTenant
 
     if (tenantError) throw new Error(`Failed to create tenant: ${tenantError.message}`);
 
-    // 2. Create Auth User
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: validated.email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: {
-        first_name: firstName,
-        last_name: lastName,
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    
+    // 2. Invite Auth User (Sends standard invite email)
+    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+      validated.email,
+      {
+        redirectTo: `${siteUrl}/auth/callback?next=/school`,
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          invited_as: "director",
+          tenant_id: tenant.id
+        }
       }
-    });
+    );
 
-    if (authError) {
+    if (authError || !authUser?.user) {
       // Rollback tenant
       await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
-      throw new Error(`Failed to create auth user: ${authError.message}`);
+      throw new Error(`Failed to invite auth user: ${authError?.message}`);
     }
 
     // 3. Insert Profile
@@ -222,18 +227,7 @@ export async function createTenantWithDirector(data: z.infer<typeof createTenant
       console.error("Membership error", membershipError);
     }
 
-    const activationLink = await buildActivationLink(validated.email);
-    const emailDelivery = await sendCredentialsEmail({
-      email: validated.email,
-      directorName: validated.fullName,
-      tenantName: validated.name,
-      activationLink,
-      isRegenerate: false,
-    });
 
-    if (!emailDelivery.accepted) {
-      throw new Error('L’invitation n’a pas pu être envoyée par email. Vérifiez la configuration SMTP/Mailpit.');
-    }
 
     revalidatePath("/platform/schools");
     revalidatePath("/platform");
@@ -257,7 +251,7 @@ export async function createTenantWithDirector(data: z.infer<typeof createTenant
         firstName,
         lastName
       },
-      emailDelivery,
+      emailDelivery: { accepted: true, transport: "supabase-auth" },
     };
 
   } catch (error: any) {
