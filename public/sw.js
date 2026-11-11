@@ -49,8 +49,23 @@ self.addEventListener('fetch', (event) => {
   const isStaticAsset = ['script', 'style', 'image', 'font', 'worker'].includes(request.destination);
   const isDocumentRequest = request.mode === 'navigate';
   const isApiRequest = isSameOrigin && url.pathname.startsWith('/api/');
+  const isDirectAuthNavigation = isSameOrigin && (
+    url.pathname === '/login' ||
+    url.pathname.startsWith('/login') ||
+    url.pathname === '/forgot-password' ||
+    url.pathname.startsWith('/forgot-password') ||
+    url.pathname === '/update-password' ||
+    url.pathname.startsWith('/update-password') ||
+    url.pathname === '/parent/join' ||
+    url.pathname.startsWith('/parent/join')
+  );
 
   if (isDocumentRequest) {
+    if (isDirectAuthNavigation) {
+      event.respondWith(fetch(request));
+      return;
+    }
+
     event.respondWith(
       fetch(request).catch(async () => {
         const cached = await caches.match('/');
